@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "brcd-printer"
+version = "0.1.0"
+description = ""
+authors = ["Romain Viry <rom88.viry@gmail.com>"]
+readme = "README.md"
+packages = [{include = "brcd_printer"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+sanic = "^23.12.1"
+brother-ql = "^0.9.4"
+python-barcode = "^0.15.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
