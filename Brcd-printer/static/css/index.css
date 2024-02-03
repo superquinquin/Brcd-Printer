@@ -24,7 +24,16 @@ body {
     width: 60%;
 }
 
+.border {
+    border-left: solid 1px var(--secondary);
+    border-top: solid 1px var(--secondary);
+    border-right: solid 3px var(--secondary);
+    border-bottom: solid 3px var(--secondary);
+}
 
+
+
+/* BARCODE INPUT SECTION */
 .barcode {
     margin: 0 auto;
 }
@@ -32,18 +41,19 @@ body {
 .input-label {
     display: block;
     margin: 0 0 20px 20px;
-
-
     font-size: 2em;
     font-weight: bold;
 }
 
 .input-field {
     display: block;
+    width: 100%;
 }
 
-.field {
-    width: 50%;
+/* LEFT FIELD */
+
+.leftfield {
+    width: 70%;
     height: 50px;
     font-weight: bold;
     font-size: 1em;
@@ -52,18 +62,33 @@ body {
     border-bottom-left-radius: 25px;
 }
 
-.field:focus {
+
+/* MID FIELD */
+.midfield {
+    width: 6%;
+    height: 50px;
+    margin-left: -8px;
+    
+    padding-left: 20px;
+    font-weight: bold;
+    font-size: 1em;
+}
+
+
+.leftfield:focus, .midfield:focus {
     outline: none;
     transition: background-color 0.2s ease;
     background-color: var(--items-done);
 }
 
-.field:hover {
+.leftfield:hover, .midfield:hover {
     transition: background-color 0.2s ease;
     background-color: var(--itemshover-done);
 }
 
-.accept {
+
+/* rightfield */
+.rightfield {
     position: relative;
     top: -1px;
     width: 10%;
@@ -73,14 +98,7 @@ body {
     border-bottom-right-radius: 25px;
 }
 
-.accept:hover {
+.rightfield:hover {
     transition: background-color 0.2s ease;
     background-color: var(--itemshover-done);
-}
-
-.border {
-    border-left: solid 1px var(--secondary);
-    border-top: solid 1px var(--secondary);
-    border-right: solid 3px var(--secondary);
-    border-bottom: solid 3px var(--secondary);
 }

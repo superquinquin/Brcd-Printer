@@ -9,11 +9,14 @@
 <body>
     <main>
         <div class="barcode">
-            <label class="input-label" for="barcode">Your barcode:</label>
-            <div class="input-field">
-                <input class="field border" type="text" name="barcode">
-                <button class="accept border">Imprimer</button>
-            </div>
+            <form action="/job" method="post">
+                <label class="input-label" for="barcode">Your barcode:</label>
+                <div class="input-field">
+                    <input class="leftfield border" type="text" name="barcode" value="" autofocus placeholder="Votre code-barres...">
+                    <input class="midfield border" type="number" value="1" min="1" max="32" name="quantity">
+                    <button class="rightfield border" type="submit">Imprimer</button>
+                </div>
+            </form>
         </div>
     </main>
 </body> 
