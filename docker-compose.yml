@@ -1,0 +1,13 @@
+version: "3.4.2"
+
+services:
+  printer:
+    build: .
+    container_name: printer
+    ports:
+      - "8000:8000"
+    networks:
+      - printer
+
+networks:
+  printer:
