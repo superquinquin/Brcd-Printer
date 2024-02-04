@@ -12,7 +12,7 @@
             <form action="/job" method="post">
                 <label class="input-label" for="barcode">Your barcode:</label>
                 <div class="input-field">
-                    <input class="leftfield border" type="text" name="barcode" value="" autofocus placeholder="Votre code-barres...">
+                    <input class="leftfield border" name="barcode" value="" autofocus placeholder="Votre code-barres..." pattern="[0-9]*">
                     <input class="midfield border" type="number" value="1" min="1" max="32" name="quantity">
                     <button class="rightfield border" type="submit">Imprimer</button>
                 </div>

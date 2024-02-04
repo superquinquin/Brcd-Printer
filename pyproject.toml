@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "brcd-printer"
+name = "brcdprinter"
 version = "0.1.0"
 description = ""
 authors = ["Romain Viry <rom88.viry@gmail.com>"]
