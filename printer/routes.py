@@ -7,17 +7,16 @@ from sanic_ext import render
 
 from jinja2 import Environment, FileSystemLoader
 
-from barcode.ean import EAN13
-from barcode.writer import ImageWriter
-from tempfile import NamedTemporaryFile
-
-import brother_ql
-
-from brcdprinter.validator import form_validator
+from printer.job import process_print_query
+from printer.validator import form_validator
 
 
-templates = Environment(loader=FileSystemLoader('./brcdprinter/templates/'),enable_async=True)
+templates = Environment(loader=FileSystemLoader('./printer/templates/'),enable_async=True)
 printer = Blueprint("printer")
+
+# ip = BROTHER_QL_PRINTER=tcp://192.168.1.174
+# model = export BROTHER_QL_MODEL=QL-720NW 
+# brother_ql print -l 62x29 ./barcode2.png
 
 @printer.get("/")
 async def index(request: Request):
@@ -28,12 +27,13 @@ async def index(request: Request):
 @form_validator
 async def job(request: Request):
     form = request.get_form()
-    ean, qty = form.get("barcode"), form.get("quantity")    
-    brcd = EAN13(ean, writer=ImageWriter())
-    with NamedTemporaryFile(suffix=".png") as fp:
-        brcd.write(fp)
-        
+    ean, qty = form.get("barcode"), int(form.get("quantity"))
+    # process_print_query(ean, qty)
     return text('OK')
+
+
+
+
 
 
 

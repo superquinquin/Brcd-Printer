@@ -2,10 +2,10 @@
 
 from sanic import Sanic
 
-from brcdprinter.routes import printer
+from printer.routes import printer
 
 def create_app():
     app = Sanic(__name__)
-    app.static('/static', "./brcdprinter/static")
+    app.static('/static', "./printer/static")
     app.blueprint(printer)
     return app

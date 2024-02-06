@@ -6,6 +6,18 @@ MAX_QTY = 32
 
 
 def form_validator(f):
+    def validate_ean(ean: str) -> bool:
+        v = False
+        if len(ean) == 13 and ean.isnumeric():
+            v = True
+        return v
+
+    def validate_qty(qty: str) -> bool:
+        v = False
+        if qty.isnumeric() and  0 < int(qty) < MAX_QTY:
+            v = True
+        return v
+    
     @wraps(f)
     def wrapper(*args, **kwargs):
         validated_ean, validated_qty = False, False
@@ -30,14 +42,3 @@ def form_validator(f):
     return wrapper
 
 
-def validate_ean(ean: str) -> bool:
-    v = False
-    if len(ean) == 13 and ean.isnumeric():
-        v = True
-    return v
-
-def validate_qty(qty: str) -> bool:
-    v = False
-    if qty.isnumeric() and  0 < int(qty) < MAX_QTY:
-        v = True
-    return v
