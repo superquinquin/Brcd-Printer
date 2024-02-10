@@ -1,3 +1,4 @@
-from printer import create_app
+from printer.main import Brcdprinter
 
-app = create_app()
+brcd_printer = Brcdprinter.create_app()
+app = brcd_printer.app
