@@ -42,3 +42,11 @@ def form_validator(f):
     return wrapper
 
 
+def check_barcode(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        
+        
+        
+        return 0
+    return wrapper
