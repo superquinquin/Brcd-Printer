@@ -8,6 +8,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.10"
 sanic = "^23.12.1"
+ERPpeek = "^1.7.1"
 brother-ql = "^0.9.4"
 python-barcode = "^0.15.1"
 sanic-ext = "^23.12.0"
