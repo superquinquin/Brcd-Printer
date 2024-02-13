@@ -28,8 +28,8 @@ async def index(request: Request):
 async def job(request: Request):
     form = request.get_form()
     ean, qty = form.get("barcode"), int(form.get("quantity"))
-    # process_print_query(ean, qty)
-    return text('OK')
+    process_print_query(ean, qty)
+    return await render(templates.get_template("index.html"))
 
 
 
