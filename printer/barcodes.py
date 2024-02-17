@@ -28,7 +28,17 @@ class BarcodeGenerator(object):
         self._parser = self.__infer(__ean)
         if self._parser is None:
             raise ValueError(f"Input {__ean} does not fit any barcodes patterns")
+        self.__ean = __ean
         self.barcode = self._parser(__ean, self.__writer)
+
+    @property
+    def value(self):
+        """named value because all barcodes are not ean based."""
+        return self.__ean
+    
+    @property
+    def btype(self):
+        return self.__type
 
     def write(self, fp:str, dimensions: tuple[int, int | None]) -> None:
         img = self.barcode.render()
@@ -45,6 +55,7 @@ class BarcodeGenerator(object):
         for p in self.__patterns:
             _pattern = getattr(module, p)
             if bool(re.search(_pattern, __ean)):
+                self.__type = p.removesuffix("_PATTERN")
                 parser = getattr(module, p.removesuffix("_PATTERN"))
                 break
         return parser

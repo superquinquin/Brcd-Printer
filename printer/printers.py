@@ -66,9 +66,9 @@ class Printer(object):
         self.dimensions = dimensions
         self.img_dimensions = DIMENSIONS.get(dimensions)
        
-    def print_job(self, ean: str, qty: int) -> None:
+    def print_job(self, barcode: BarcodeGenerator, qty: int) -> None:
         with NamedTemporaryFile(suffix=".png") as fp:
-            BarcodeGenerator(ean).write(fp.name, self.img_dimensions)
+            barcode.write(fp.name, self.img_dimensions)
             self._print(fp.name, qty)
         
     def _print(self, fp: str, qty: int) -> None:
