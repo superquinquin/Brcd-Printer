@@ -1,4 +1,5 @@
 from __future__ import annotations
+from functools import partial
 from sqlite3 import Cursor, Row, connect
 
 from typing import Dict, Any, TypeVar, Literal
@@ -22,10 +23,63 @@ class Database(object):
         fields = [column[0] for column in cursor.description]
         return {key: value for key, value in zip(fields, row)}
     
-    def write(self, tn:TableName, cn: list[_ColNames], values: list[_SqliteTypes]) -> None:
-        _cn_str, _v_anchors = ' ,'.join(cn), ' ,'.join(["?" for _ in range(len(values))])
-        self.cursor.execute(f"INSERT INTO {tn}({_cn_str}) VALUES({_v_anchors});", tuple(values))
-        self.con.commit()
+    def add_product(self, values: list[_SqliteTypes]) -> int:
+        _writer = partial(self._write, tn="product", cn=["pid", "name"])
+        return _writer(values=values)
+    
+    def add_barcode(self, values: list[_SqliteTypes]) -> int:
+        _writer = partial(self._write, tn="barcodes", cn=["barcode", "product_id"])
+        return _writer(values=values)
+
+    def add_historic(self, values:list[_SqliteTypes]) -> int:
+        _writer = partial(self._write, tn="historic", cn=["timestamp", "barcode", "quantity", "success", "product_id", "error_name"])
+        return _writer(values=values)
+    
+    def get_historic(self) -> Dict[str, _SqliteTypes]:
+        return self.con.execute(
+            f"""
+            SELECT *
+            FROM historic;
+            """
+        ).fetchall()
+    
+    def get_products(self) -> Dict[str, _SqliteTypes]:
+        res = self.con.execute(
+                f"""
+                SELECT product.id, product.name, product.pid, barcode
+                FROM product
+                JOIN barcodes ON product.id = barcodes.product_id;
+                """
+        ).fetchall()
+        
+        products = {}
+        for p in res:
+            record = products.get(p['id'], None)
+            if record:
+                record["barcodes"].append(p["barcode"])
+            else:
+                barcode = p.pop("barcode")
+                p.update({"barcodes": [barcode]})
+                products[p["id"]] = p    
+        return products
+    
+    def get_barcodes(self) -> Dict[str, _SqliteTypes]:
+        return self.con.execute(
+            f"""
+            SELECT product.id, product.name, product.pid, barcode
+            FROM barcodes
+            JOIN product ON product_id = product.id;
+            """
+        ).fetchall()
+    
+    def search_product_by_pid(self, pid: int) -> Dict[str, _SqliteTypes] | None:
+        return self.con.execute(
+            f"""
+            SELECT id, pid, name
+            FROM product
+            WHERE pid = {pid};
+            """
+        ).fetchone()
         
     def search_product(self, barcode: str) -> Record:
         return self.con.execute(
@@ -37,13 +91,20 @@ class Database(object):
             """
         ).fetchone()
         
-    def fuzzy_search_product(self, barcode:str) -> list[Record]:
+    def fuzzy_search_product(self, input: str, _type: str) -> list[Record]:
+        if _type == "barcode":
+            res = self._fuzzy_search_product_barcode(input)
+        else:
+            res = self._fuzzy_search_product_name(input)
+        return res
+        
+    def _fuzzy_search_product_barcode(self, barcode:str) -> list[Record]:
         res = self.con.execute(
             f"""
-            SELECT product.pid, product.name, barcodes.barcodes
+            SELECT product.name, product.pid, barcode
             FROM barcodes
             JOIN product ON barcodes.product_id = product.id
-            WHERE barcode LIKE %"{barcode}"%;
+            WHERE barcode LIKE "%{barcode}%";
             """
         ).fetchall()
         
@@ -57,7 +118,30 @@ class Database(object):
                 products.append(r)
         return products
     
-    
+    def _fuzzy_search_product_name(self, name: str) -> list[Record]:
+        res = self.con.execute(
+            f"""
+            SELECT product.name, product.pid, barcode
+            FROM barcodes
+            JOIN product ON barcodes.product_id = product.id
+            WHERE product.name LIKE "%{name}%";
+            """
+        )
+        products, seen = [], set()
+        for r in res:
+            pid = r["pid"]
+            if pid not in seen:
+                seen.add(pid)
+                products.append(r)
+        return products
+
+    def _write(self, tn:TableName, cn: list[_ColNames], values: list[_SqliteTypes]) -> Row:
+        _cn_str, _v_anchors = ' ,'.join(cn), ' ,'.join(["?" for _ in range(len(values))])
+        self.cursor.execute(f"INSERT OR IGNORE INTO {tn}({_cn_str}) VALUES({_v_anchors});", tuple(values))
+        self.con.commit()
+        return self.cursor.lastrowid 
+        
+
     def _build_historic_table(self) -> None:
         self.cursor.execute(
             """
@@ -65,7 +149,7 @@ class Database(object):
             (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 timestamp TEXT NOT NULL,
-                ean TEXT NOT NULL,
+                barcode TEXT NOT NULL,
                 quantity INT NOT NULL,
                 success BOOL NOT NULL,
                 product_id INTEGER,
@@ -82,7 +166,7 @@ class Database(object):
             CREATE TABLE IF NOT EXISTS product
             (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                pid INTEGER NOT NULL,
+                pid INTEGER UNIQUE NOT NULL,
                 name TEXT NOT NULL
             );
             """
