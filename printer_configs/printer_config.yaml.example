@@ -9,7 +9,7 @@ app:
       # do not setup config args here. config is being injected with whole config tree.
       # https://sanic.dev/api/sanic.app.html
       ...
-      
+      # https://sanic.dev/en/guide/running/configuration.html#sanic-config-config
     blueprints:
 
     static_path: ""
@@ -20,7 +20,11 @@ app:
     use_db_history: true
     # client fetch historic or odoo on key event, client will display most probable pairs (ean, name) as selectable options.
     ean_hinting: true 
-    ...
+    odoo_verification: true
+    use_db_history: true
+    ean_hinting: true 
+    odoo_hinting: true
+    min_chars_for_odoo_hint: 4
 
   db:
     # wont build support for other than sqlite, but could do.

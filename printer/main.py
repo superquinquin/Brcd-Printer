@@ -1,14 +1,16 @@
 from __future__ import annotations
 from os import environ
-from sanic import Sanic, Config
+from sanic import Sanic
 
 from typing import Dict, Any, Optional
 
 from printer.db import Database
+from printer.odoo import Odoo
 from printer.printers import Printer
 from printer.log import Logger, SimpleStreamLogger
 from printer.routes import printer
 from printer.parsers import get_config
+
 
 
 Payload = Dict[str, Any]
@@ -24,10 +26,9 @@ banner = """\
 
 class Brcdprinter(object):
     """
-    util wraper around Sanic webserver.
-    handle brcd_configs and env configurations
-    :parameterss:
-        :app:
+    util wrapper for configuring and building app context for brcdPrinter.
+    :parameters:
+        :app: 
         :options:
         :barcodes:
         :printers:
@@ -48,24 +49,36 @@ class Brcdprinter(object):
         ) -> None:
         self.env = env
         self.print_banner()
-        
+
         if logger:
             logging = Logger(**logger)
         else:
             logging = SimpleStreamLogger()
-                
-        self.app = Sanic("app")
-        self.app.static('/static', "./printer/static")
-        self.app.blueprint(printer)
         
-        if printers.get("printers", None) is None:
+        self.app = Sanic("app")
+        self.app.static('/static', sanic.get("static"))
+        self.app.config.update({k.upper():v for k,v in sanic.get("app", {}).items()})
+        self.app.blueprint(printer)
+
+        default = printers.get("default", None)
+        pprinters = printers.get("printers", None)
+        if pprinters is None:
             raise KeyError("You must configure printers")
-        self.register_printers(printers.get("printers"))
-        self.set_default_printer(printers.get("default", None))
+        self.register_printers(pprinters)
+        self.set_default_printer(default)
 
         if db:
             self.mount_db(db)        
         
+        if odoo:
+            erp = odoo.get("erp", None)
+            if erp is None:
+                raise KeyError("you must set odoo credentials")
+            self.app.ctx.odoo = Odoo(**erp)
+            
+        self.app.ctx.options = options
+        self.app.ctx.barcodes = barcodes
+            
     @classmethod
     def create_app(cls):
         cfg = get_config(environ.get("CONFIG_FILEPATH", "./printer_configs/config.yaml"))
@@ -74,7 +87,6 @@ class Brcdprinter(object):
     def print_banner(self):
         print(banner)
         print(f"Booting {self.env} ENV")
-    
     
     def register_printers(self, printers: Payload) -> None:
         self.app.ctx.printers = {k:Printer(**v) for k,v in printers.items()}
@@ -94,4 +106,3 @@ class Brcdprinter(object):
         if kwargs is None:
             raise KeyError("You must pass Kawargs into the db config")
         self.app.ctx.db = Database(**kwargs)
-            
