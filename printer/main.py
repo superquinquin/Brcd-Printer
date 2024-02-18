@@ -59,6 +59,7 @@ class Brcdprinter(object):
         self.app.static('/static', sanic.get("static"))
         self.app.config.update({k.upper():v for k,v in sanic.get("app", {}).items()})
         self.app.blueprint(printer)
+        self.app.ctx.logging = logging.log
 
         default = printers.get("default", None)
         pprinters = printers.get("printers", None)

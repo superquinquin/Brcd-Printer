@@ -7,9 +7,13 @@ from printer.barcodes import BarcodeGenerator
 from printer.odoo import Odoo
 from printer.db import Database
 
-def validator(f) -> Request:
+from time import perf_counter
+
+from typing import Coroutine
+
+def validator(f) -> Coroutine:
     @wraps(f)
-    def wrapper(*args, **kwargs) -> Request:
+    def wrapper(*args, **kwargs) -> Coroutine:
         request: Request = args[0]
         payload = request.load_json()
         db: Database = request.app.ctx.db
@@ -35,9 +39,9 @@ def validator(f) -> Request:
         return f(*args, **kwargs)
     return wrapper
 
-def odoo_validator(f) -> None:
+def odoo_validator(f) -> Coroutine:
     @wraps(f)
-    def wrapper(*args, **kwargs) -> None:
+    def wrapper(*args, **kwargs) -> Coroutine:
         request: Request = args[0]
         payload = request.ctx.payload
         db: Database = request.app.ctx.db
@@ -62,4 +66,22 @@ def odoo_validator(f) -> None:
         db.add_barcode([barcode, rowid])
         db.add_historic([datetime.now().isoformat(), barcode, payload["qty"], True, rowid, None])
         return f(*args, **kwargs)
+    return wrapper
+
+def logging_hook(f) -> Coroutine:
+    @wraps(f)
+    def wrapper(*args, **kwargs) -> Coroutine:
+        tick = perf_counter()
+        r: Request = args[0]
+        logging = r.app.ctx.logging
+        logging.info(f"{r.method} [{f.__module__}.{f.__name__}][{r.json}]")
+        try:
+            response: Coroutine = f(*args, **kwargs)
+            perf = round(perf_counter() - tick, 5)
+            logging.info(f"[200][{f.__module__}.{f.__name__}][{perf}s]")
+        except Exception as e:
+            response = None
+            logging.error(f"[500][{f.__module__}.{f.__name__}][{r.json}]")
+            logging.exception(e, exc_info=True)
+        return response
     return wrapper
