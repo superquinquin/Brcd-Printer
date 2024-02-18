@@ -1,13 +1,16 @@
-version: "3.4.2"
+version: "3.3"
 
 services:
   printer:
     build: .
     container_name: printer
+    env_file: .env
     ports:
       - "8000:8000"
     networks:
       - printer
+    volumes:
+      - ./volume:/application/volume
 
 networks:
   printer:
