@@ -2,36 +2,29 @@ from __future__ import annotations
 
 from sanic import Blueprint
 from sanic.request import Request
-from sanic.response import text, HTTPResponse, json
+from sanic.response import json
 from sanic_ext import render
 
-from jinja2 import Environment, FileSystemLoader
+from typing import Coroutine
 
-# from printer.job import process_print_query
-from printer.validator import validator, odoo_validator
+from printer.validator import validator, odoo_validator, logging_hook
 from printer.utils import parse_subean
 from printer.db import Database
 from printer.odoo import Odoo
 from printer.printers import Printer
-import pprint
-
-from time import perf_counter
 
 printer = Blueprint("printer")
 
-# ip = BROTHER_QL_PRINTER=tcp://192.168.1.174
-# model = export BROTHER_QL_MODEL=QL-720NW 
-# brother_ql print -l 62x29 ./barcode2.png
-
 @printer.get("/")
+@logging_hook
 async def index(request: Request):
     return await render("index.html")
 
 @printer.post("/job")
+@logging_hook
 @validator
 @odoo_validator
-async def job(request: Request):
-    print('got job request', request.json)
+async def job(request: Request) -> Coroutine:
     pname = request.ctx.printer
     payload = request.ctx.payload
     
@@ -46,51 +39,51 @@ async def job(request: Request):
 
 
 @printer.post("/getHint")
-async def hinting(request: Request):
-    print("running hint search")
-    tick = perf_counter()
+@logging_hook
+async def hinting(request: Request) -> Coroutine:
     payload = parse_subean(request.load_json())
 
     opts = request.app.ctx.options
     enabled_hinting = opts.get("ean_hinting", False)
     odoo_hinting = opts.get("odoo_hinting", False)
     min_chars_for_odoo = opts.get("min_chars_for_odoo_hint", 4)
+    odoo_limits = opts.get("odoo_hint_limit", 5)
+    db_limits = opts.get("db_hint_limit", 5)
     input_len = payload["input"]
     
     if enabled_hinting is False:
-        return json({"msg": "hinting is desabled"}, status=200)
+        return json({"type": "err","msg": "hinting is desabled"}, status=200)
     
-    elif (odoo_hinting is False or len(input_len) < min_chars_for_odoo) or payload["_type"] == "name":
+    elif (odoo_hinting is False or len(input_len) < min_chars_for_odoo):
         # -- use db historical products
         db: Database = request.app.ctx.db
-        res = db.fuzzy_search_product(**payload)
+        res = db.fuzzy_search_product(**payload, limit=db_limits)
     
     elif odoo_hinting:
         odoo: Odoo = request.app.ctx.odoo
-        res = None
-        res = odoo.fuzzy_search_product(**payload)
-        
-    print(perf_counter() - tick)
+        res = odoo.fuzzy_search_product(**payload, limit=odoo_limits)
     payload.update({"results":res})
-    print(payload)
     return json(payload, status=200)
 
 
 @printer.get("/historic")
-async def get_historic(request:Request):
+@logging_hook
+async def get_historic(request:Request) -> Coroutine:
     db: Database = request.app.ctx.db
     res = db.get_historic()
     return json(res, status=200)
 
 
 @printer.get("/products")
-async def get_products(request:Request):
+@logging_hook
+async def get_products(request:Request) -> Coroutine:
     db: Database = request.app.ctx.db
     res = db.get_products()
     return json(res, status=200)
     
 @printer.get("/barcodes")
-async def get_barcodes(request:Request):
+@logging_hook
+async def get_barcodes(request:Request) -> Coroutine:
     db: Database = request.app.ctx.db
     res = db.get_barcodes()
     return json(res, status=200)

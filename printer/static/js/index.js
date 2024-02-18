@@ -29,6 +29,12 @@ async function findHint(e) {
     console.log(e.keyCode, e.key)
     if ((e.keyCode >= 48 && e.keyCode <= 57) || (e.keyCode >= 65 && e.keyCode <= 90) || e.keyCode == 8 || e.keyCode == 46) {
         let input = document.getElementById("txtInput").value;
+        if (input == "") {
+            ClearHints();
+            HideHints();
+            return;
+        }
+        
         payload = {
             method: "POST", 
             mode: "cors", 
@@ -41,6 +47,9 @@ async function findHint(e) {
         };
         const response = await fetch("./getHint", payload);
         const data = await response.json();
+        if (data.type == "err") {
+            return;
+        }
         ClearHints();
         PopulateHint(data);
         ShowHints();
@@ -54,7 +63,6 @@ function selectHint(elm) {
 }
 
 function PopulateHint(data) {
-    console.log(data);
     let type = data._type;
     let input = data.input;
     if (data.results) {

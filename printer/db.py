@@ -2,7 +2,7 @@ from __future__ import annotations
 from functools import partial
 from sqlite3 import Cursor, Row, connect
 
-from typing import Dict, Any, TypeVar, Literal
+from typing import Dict, Any, TypeVar, Literal, Optional
 
 Record = Dict[str, Any]
 _SqliteTypes = TypeVar("_SqliteTypes", str, int, bool, bytes)
@@ -19,7 +19,7 @@ class Database(object):
         self._build_barcodes_table()
 
     @staticmethod
-    def record_factory(cursor: Cursor, row: Row) -> Dict[str, _SqliteTypes]:
+    def record_factory(cursor: Cursor, row: Row) -> dict[_ColNames, _SqliteTypes]:
         fields = [column[0] for column in cursor.description]
         return {key: value for key, value in zip(fields, row)}
     
@@ -35,7 +35,7 @@ class Database(object):
         _writer = partial(self._write, tn="historic", cn=["timestamp", "barcode", "quantity", "success", "product_id", "error_name"])
         return _writer(values=values)
     
-    def get_historic(self) -> Dict[str, _SqliteTypes]:
+    def get_historic(self) -> dict[str, _SqliteTypes]:
         return self.con.execute(
             f"""
             SELECT *
@@ -43,7 +43,7 @@ class Database(object):
             """
         ).fetchall()
     
-    def get_products(self) -> Dict[str, _SqliteTypes]:
+    def get_products(self) -> dict[_ColNames, _SqliteTypes]:
         res = self.con.execute(
                 f"""
                 SELECT product.id, product.name, product.pid, barcode
@@ -63,7 +63,7 @@ class Database(object):
                 products[p["id"]] = p    
         return products
     
-    def get_barcodes(self) -> Dict[str, _SqliteTypes]:
+    def get_barcodes(self) -> dict[_ColNames, _SqliteTypes]:
         return self.con.execute(
             f"""
             SELECT product.id, product.name, product.pid, barcode
@@ -72,7 +72,7 @@ class Database(object):
             """
         ).fetchall()
     
-    def search_product_by_pid(self, pid: int) -> Dict[str, _SqliteTypes] | None:
+    def search_product_by_pid(self, pid: int) -> dict[_ColNames, _SqliteTypes] | None:
         return self.con.execute(
             f"""
             SELECT id, pid, name
@@ -91,20 +91,20 @@ class Database(object):
             """
         ).fetchone()
         
-    def fuzzy_search_product(self, input: str, _type: str) -> list[Record]:
+    def fuzzy_search_product(self, input: str, _type: str, limit: int) -> list[Record]:
         if _type == "barcode":
-            res = self._fuzzy_search_product_barcode(input)
+            res = self._fuzzy_search_product_barcode(input, limit)
         else:
-            res = self._fuzzy_search_product_name(input)
+            res = self._fuzzy_search_product_name(input, limit)
         return res
         
-    def _fuzzy_search_product_barcode(self, barcode:str) -> list[Record]:
+    def _fuzzy_search_product_barcode(self, barcode:str, limit: Optional[int] | None = None) -> list[Record]:
         res = self.con.execute(
             f"""
             SELECT product.name, product.pid, barcode
             FROM barcodes
             JOIN product ON barcodes.product_id = product.id
-            WHERE barcode LIKE "%{barcode}%";
+            WHERE barcode LIKE "%{barcode}%"{self._parse_limit(limit)};
             """
         ).fetchall()
         
@@ -118,13 +118,13 @@ class Database(object):
                 products.append(r)
         return products
     
-    def _fuzzy_search_product_name(self, name: str) -> list[Record]:
+    def _fuzzy_search_product_name(self, name: str, limit: Optional[int] | None = None) -> list[Record]:
         res = self.con.execute(
             f"""
             SELECT product.name, product.pid, barcode
             FROM barcodes
             JOIN product ON barcodes.product_id = product.id
-            WHERE product.name LIKE "%{name}%";
+            WHERE product.name LIKE "%{name}%"{self._parse_limit(limit)};
             """
         )
         products, seen = [], set()
@@ -135,7 +135,14 @@ class Database(object):
                 products.append(r)
         return products
 
-    def _write(self, tn:TableName, cn: list[_ColNames], values: list[_SqliteTypes]) -> Row:
+    @staticmethod
+    def _parse_limit(limit: int | None) -> str:
+        lmt = ""
+        if limit is not None:
+            lmt = f" LIMIT {str(limit)}"
+        return lmt
+
+    def _write(self, tn:TableName, cn: list[_ColNames], values: list[_SqliteTypes]) -> int:
         _cn_str, _v_anchors = ' ,'.join(cn), ' ,'.join(["?" for _ in range(len(values))])
         self.cursor.execute(f"INSERT OR IGNORE INTO {tn}({_cn_str}) VALUES({_v_anchors});", tuple(values))
         self.con.commit()
