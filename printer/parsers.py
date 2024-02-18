@@ -62,7 +62,7 @@ def map_env(config: Payload) -> Payload:
             config[k] = map_env(v)
     return config
 
-def get_config(path: str):
+def get_config(path: str) -> Payload:
     with open(path, 'r') as f:
         config = yaml.load(f, SafeLoader)
         config = parse_config(config)
