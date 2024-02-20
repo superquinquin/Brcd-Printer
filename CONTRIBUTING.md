@@ -17,7 +17,6 @@ Dockerfile:24 DL3059 info: Multiple consecutive `RUN` instructions. Consider con
 Dockerfile:68 DL3021 error: COPY with more than 2 arguments requires the last argument to end with /
 ```
 
-
 ## Python code
 
 ### Python Linting
@@ -38,7 +37,6 @@ Found 7 errors.
 [*] 5 fixable with the `--fix` option (1 hidden fix can be enabled with the `--unsafe-fixes` option).
 ```
 
-
 You could use the option --fix if you're confortable with:
 
 ```shell
@@ -48,10 +46,12 @@ printer/parsers.py:38:14: E721 Do not compare types, use `isinstance()`
 Found 7 errors (5 fixed, 2 remaining).
 ```
 
-
 ### Python safety-check
 
 ```shell
+# First install linter required using poetry
+> poetry install --with=dev
+# Execute safety-check
 > poetry run safety check
 +=========================================================================================================================================================+
                                /$$$$$$            /$$
@@ -117,4 +117,18 @@ Found 7 errors (5 fixed, 2 remaining).
 sales@pyup.io
 
 +=========================================================================================================================================================+
+```
+
+## YAML files
+
+### YAML Linting
+
+```shell
+# First install linter required using poetry
+> poetry install --with=dev
+# Execute yamllint check
+> poetry run yamllint -f colored -c .yamllint.yaml .
+./docker-compose.yml
+  1:1       warning  missing document start "---"  (document-start)
+  16:11     error    no new line character at the end of file  (new-line-at-end-of-file)
 ```
