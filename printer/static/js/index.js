@@ -25,9 +25,8 @@ async function sendJob() {
 }    
 
 
-async function findHint(e) {
-    console.log(e.keyCode, e.key)
-    if ((e.keyCode >= 48 && e.keyCode <= 57) || (e.keyCode >= 65 && e.keyCode <= 90) || e.keyCode == 8 || e.keyCode == 46) {
+async function findHint(event) {
+    if ((event.keyCode >= 48 && event.keyCode <= 57) || (event.keyCode >= 65 && event.keyCode <= 90) || event.keyCode == 8 || event.keyCode == 46) {
         let input = document.getElementById("txtInput").value;
         if (input == "") {
             ClearHints();
@@ -55,6 +54,11 @@ async function findHint(e) {
         ShowHints();
     }
 }
+
+document.getElementById("txtInput").addEventListener("keyup", (event) => {findHint(event)});
+document.getElementById("txtInput").addEventListener("touchend", (event) => {findHint(event)});
+
+
 
 
 function selectHint(elm) {
