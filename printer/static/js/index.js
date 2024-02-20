@@ -26,7 +26,8 @@ async function sendJob() {
 
 
 async function findHint(event) {
-    if ((event.keyCode >= 48 && event.keyCode <= 57) || (event.keyCode >= 65 && event.keyCode <= 90) || event.keyCode == 8 || event.keyCode == 46) {
+    // all softkeys chars == 229
+    if ((event.keyCode >= 48 && event.keyCode <= 57) || (event.keyCode >= 65 && event.keyCode <= 90) || event.keyCode == 8 || event.keyCode == 46 || event.keyCode == 229) {
         let input = document.getElementById("txtInput").value;
         if (input == "") {
             ClearHints();
