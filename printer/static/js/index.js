@@ -133,7 +133,7 @@ class Hint {
     }
 
     _highlightSubString(input, value) {
-        return value.toLowerCase().replace(input, "<strong>"+input+"</strong>");
+        return value.toLowerCase().replace(input.toLowerCase(), "<strong>"+input.toLowerCase()+"</strong>");
     }
 }
 
