@@ -35,7 +35,7 @@ class Odoo(object):
                 self.user = self.client.ResUsers.browse(self.log)
                 self.tz = self.user.tz
                 _conn = True
-            except Exception as e:
+            except Exception:
                 time.sleep(5)
                 _tries += 1
         
