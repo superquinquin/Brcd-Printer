@@ -37,7 +37,7 @@ def parse_config(config: Payload) -> Payload:
                 f"{key} from cannettes and env configs must be of same type"
             )
 
-        elif type(mcfg) == type(ecfg) == dict:
+        elif isinstance(mcfg, dict) and isinstance(ecfg, dict):
             # -- env cfg must override in case of duplicates
             config[key] = {**mcfg, **ecfg}
 
