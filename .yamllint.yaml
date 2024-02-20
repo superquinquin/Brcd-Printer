@@ -3,9 +3,9 @@ extends: default
 
 # 80 chars should be enough, but don't fail if a line is longer
 rules:
-    line-length:
-        max: 80
-        level: warning
+  line-length:
+    max: 80
+    level: warning
 
 ignore: |
-    .gitlab-ci.yml
+  printer_configs/printer_config.yaml.example
