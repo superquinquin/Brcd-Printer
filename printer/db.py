@@ -37,7 +37,7 @@ class Database(object):
     
     def get_historic(self) -> dict[str, _SqliteTypes]:
         return self.con.execute(
-            f"""
+            """
             SELECT *
             FROM historic;
             """
@@ -45,7 +45,7 @@ class Database(object):
     
     def get_products(self) -> dict[_ColNames, _SqliteTypes]:
         res = self.con.execute(
-                f"""
+                """
                 SELECT product.id, product.name, product.pid, barcode
                 FROM product
                 JOIN barcodes ON product.id = barcodes.product_id;
@@ -65,7 +65,7 @@ class Database(object):
     
     def get_barcodes(self) -> dict[_ColNames, _SqliteTypes]:
         return self.con.execute(
-            f"""
+            """
             SELECT product.id, product.name, product.pid, barcode
             FROM barcodes
             JOIN product ON product_id = product.id;
