@@ -11,7 +11,7 @@ services:
     networks:
       - printer
     volumes:
-      - ./volume:/application/volume
+      - ./volume:/home/superquinquin/printer/volume
 
 networks:
   printer:
