@@ -47,7 +47,7 @@ async def job(request: Request) -> HTTPResponse:
     
     if printer is None:
         return json({"type":"err","msg": "L'imprimante sélectionnée n'existe pas."},status=500)    
-    # printer.print_job(**payload)
+    printer.print_job(**payload)
     return json({"type":"ok", "msg": f"Code-barres: {payload['barcode'].value} imprimé"},status=200)
 
 
