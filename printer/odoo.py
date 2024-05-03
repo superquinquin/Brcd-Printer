@@ -72,7 +72,6 @@ class Odoo(object):
         limit: Optional[int] | None = None, 
         ttl_hash: Optional[int] | None = None
         ) -> list[Dict[str, Any]]:
-        print('in')
         res = self.client.model("product.product").browse([("active", "=", True),("barcode", "like", barcode)], limit=limit)
         return [{"barcode": r.barcode, "name": r.name} for r in res]
     
