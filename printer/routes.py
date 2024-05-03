@@ -1,11 +1,10 @@
 from __future__ import annotations
 
+from time import perf_counter
 from sanic import Blueprint
 from sanic.request import Request
-from sanic.response import json
+from sanic.response import HTTPResponse, json
 from sanic_ext import render
-
-from typing import Coroutine
 
 from printer.validator import validator, odoo_validator, logging_hook
 from printer.utils import parse_subean
@@ -16,19 +15,29 @@ from printer.printers import Printer
 printer = Blueprint("printer")
 
 async def error_handler(request: Request, exception: Exception):
+    perf = round(perf_counter() - request.ctx.t, 5)
+    request.app.ctx.logging.info(f"[500][{request.endpoint}][{type(exception).__name__}][{perf}s]")
     return json({"type":"err", "msg": str(exception)}, status=500)
+
+@printer.on_request(priority=100)
+async def log_entry(request: Request) -> HTTPResponse:
+    request.ctx.t = perf_counter()
+    request.app.ctx.logging.info(f"{request.method} [{request.endpoint}][{request.load_json()}]")
+
+@printer.on_response(priority=100)
+async def log_exit(request: Request, response: HTTPResponse) -> HTTPResponse:
+    perf = round(perf_counter() - request.ctx.t, 5)
+    request.app.ctx.logging.info(f"[200][{request.endpoint}][{perf}s]")
 
 
 @printer.get("/")
-@logging_hook
 async def index(request: Request):
     return await render("index.html")
 
 @printer.post("/job")
-@logging_hook
 @validator
 @odoo_validator
-async def job(request: Request) -> Coroutine:
+async def job(request: Request) -> HTTPResponse:
     pname = request.ctx.printer
     payload = request.ctx.payload
     
@@ -43,8 +52,7 @@ async def job(request: Request) -> Coroutine:
 
 
 @printer.post("/getHint")
-@logging_hook
-async def hinting(request: Request) -> Coroutine:
+async def hinting(request: Request) -> HTTPResponse:
     payload = parse_subean(request.load_json())
 
     opts = request.app.ctx.options
@@ -71,23 +79,20 @@ async def hinting(request: Request) -> Coroutine:
 
 
 @printer.get("/historic")
-@logging_hook
-async def get_historic(request:Request) -> Coroutine:
+async def get_historic(request:Request) -> HTTPResponse:
     db: Database = request.app.ctx.db
     res = db.get_historic()
     return json(res, status=200)
 
 
 @printer.get("/products")
-@logging_hook
-async def get_products(request:Request) -> Coroutine:
+async def get_products(request:Request) -> HTTPResponse:
     db: Database = request.app.ctx.db
     res = db.get_products()
     return json(res, status=200)
     
 @printer.get("/barcodes")
-@logging_hook
-async def get_barcodes(request:Request) -> Coroutine:
+async def get_barcodes(request:Request) -> HTTPResponse:
     db: Database = request.app.ctx.db
     res = db.get_barcodes()
     return json(res, status=200)

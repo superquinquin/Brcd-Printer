@@ -1,14 +1,11 @@
 from sanic.request import Request
 from datetime import datetime
-from sanic.response import json
 from functools import wraps
 
 from printer.barcodes import BarcodeGenerator
 from printer.odoo import Odoo
 from printer.db import Database
 from printer.exception import QtyIncorrect, UnknownBarcodeFormat, NotAcceptedBarcodeFormat, ProductNotFound
-
-from time import perf_counter
 
 from typing import Coroutine
 
@@ -67,23 +64,4 @@ def odoo_validator(f) -> Coroutine:
         db.add_barcode([barcode, rowid])
         db.add_historic([datetime.now().isoformat(), barcode, payload["qty"], True, rowid, None])
         return f(*args, **kwargs)
-    return wrapper
-
-def logging_hook(f) -> Coroutine:
-    @wraps(f)
-    def wrapper(*args, **kwargs) -> Coroutine:
-        tick = perf_counter()
-        r: Request = args[0]
-        logging = r.app.ctx.logging
-        logging.info(f"{r.method} [{f.__module__}.{f.__name__}][{r.json}]")
-        response: Coroutine = f(*args, **kwargs)
-        # try:
-        #     response: Coroutine = f(*args, **kwargs)
-        #     perf = round(perf_counter() - tick, 5)
-        #     logging.info(f"[200][{f.__module__}.{f.__name__}][{perf}s]")
-        # except Exception as e:
-        #     response = None
-        #     logging.error(f"[500][{f.__module__}.{f.__name__}][{r.json}]")
-        #     logging.exception(e, exc_info=True)
-        return response
     return wrapper
