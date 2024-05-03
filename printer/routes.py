@@ -15,6 +15,10 @@ from printer.printers import Printer
 
 printer = Blueprint("printer")
 
+async def error_handler(request: Request, exception: Exception):
+    return json({"type":"err", "msg": str(exception)}, status=500)
+
+
 @printer.get("/")
 @logging_hook
 async def index(request: Request):
@@ -34,7 +38,7 @@ async def job(request: Request) -> Coroutine:
     
     if printer is None:
         return json({"type":"err","msg": "L'imprimante sélectionnée n'existe pas."},status=500)    
-    printer.print_job(**payload)
+    # printer.print_job(**payload)
     return json({"type":"ok", "msg": f"Code-barres: {payload['barcode'].value} imprimé"},status=200)
 
 

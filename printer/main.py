@@ -8,7 +8,7 @@ from printer.db import Database
 from printer.odoo import Odoo
 from printer.printers import Printer
 from printer.log import Logger, SimpleStreamLogger
-from printer.routes import printer
+from printer.routes import printer, error_handler
 from printer.parsers import get_config
 
 
@@ -59,6 +59,7 @@ class Brcdprinter(object):
         self.app.static('/static', sanic.get("static"))
         self.app.config.update({k.upper():v for k,v in sanic.get("app", {}).items()})
         self.app.blueprint(printer)
+        self.app.error_handler.add(Exception, error_handler)
         self.app.ctx.logging = logging.log
 
         default = printers.get("default", None)

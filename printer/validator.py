@@ -6,6 +6,7 @@ from functools import wraps
 from printer.barcodes import BarcodeGenerator
 from printer.odoo import Odoo
 from printer.db import Database
+from printer.exception import QtyIncorrect, UnknownBarcodeFormat, NotAcceptedBarcodeFormat, ProductNotFound
 
 from time import perf_counter
 
@@ -23,16 +24,16 @@ def validator(f) -> Coroutine:
         
         qty = payload["qty"] 
         if qty.isnumeric() is False or int(qty) > max_qty:
-            return json({"type":"err","msg":f"La quantité doit être inférieure à {max_qty}"}) 
+            raise QtyIncorrect(max_qty)
         try:
             barcode = BarcodeGenerator(payload["barcode"])
         except ValueError:
             db.add_historic([datetime.now().isoformat(), payload["barcode"], payload["qty"], False, None, "barcode doesn't fit any formats"])
-            return json({"type":"err","msg": "Le code-barre ne correspond a aucun format connu."}, status=200)
+            raise UnknownBarcodeFormat()
         
         if barcode.btype not in enabled_brcd:
             db.add_historic([datetime.now().isoformat(), payload["barcode"], payload["qty"], False, None, "barcode type not accepted"])
-            return json({"type":"err","msg": f"Les codes-barres de type : {barcode.btype} ne sont pas acceptés."}, status=200)
+            raise NotAcceptedBarcodeFormat(barcode.btype)
             
         request.ctx.printer = payload.get("printer", None)
         request.ctx.payload = {"barcode": barcode, "qty": int(qty)}
@@ -56,7 +57,7 @@ def odoo_validator(f) -> Coroutine:
         
         if bool(odoo_product) is False:
             db.add_historic([datetime.now().isoformat(), barcode, payload["qty"], False, None, "Product not found in Odoo"])
-            return json({"type":"err", "msg": "Le produit n'existe pas dans Odoo"})
+            raise ProductNotFound(str(barcode))
         
         product = db.search_product_by_pid(odoo_product.id)
         if product:
@@ -75,13 +76,14 @@ def logging_hook(f) -> Coroutine:
         r: Request = args[0]
         logging = r.app.ctx.logging
         logging.info(f"{r.method} [{f.__module__}.{f.__name__}][{r.json}]")
-        try:
-            response: Coroutine = f(*args, **kwargs)
-            perf = round(perf_counter() - tick, 5)
-            logging.info(f"[200][{f.__module__}.{f.__name__}][{perf}s]")
-        except Exception as e:
-            response = None
-            logging.error(f"[500][{f.__module__}.{f.__name__}][{r.json}]")
-            logging.exception(e, exc_info=True)
+        response: Coroutine = f(*args, **kwargs)
+        # try:
+        #     response: Coroutine = f(*args, **kwargs)
+        #     perf = round(perf_counter() - tick, 5)
+        #     logging.info(f"[200][{f.__module__}.{f.__name__}][{perf}s]")
+        # except Exception as e:
+        #     response = None
+        #     logging.error(f"[500][{f.__module__}.{f.__name__}][{r.json}]")
+        #     logging.exception(e, exc_info=True)
         return response
     return wrapper
