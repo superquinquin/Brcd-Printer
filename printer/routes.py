@@ -1,33 +1,42 @@
 from __future__ import annotations
 
+import logging
 from time import perf_counter
 from sanic import Blueprint
 from sanic.request import Request
 from sanic.response import HTTPResponse, json
 from sanic_ext import render
 
-from printer.validator import validator, odoo_validator, logging_hook
+from printer.validator import validator, odoo_validator
 from printer.utils import parse_subean
 from printer.db import Database
 from printer.odoo import Odoo
 from printer.printers import Printer
+from printer.exception import UnknownPrinter, HintingDesabled
 
+
+logger = logging.getLogger("endpointAccess")
 printer = Blueprint("printer")
 
 async def error_handler(request: Request, exception: Exception):
     perf = round(perf_counter() - request.ctx.t, 5)
-    request.app.ctx.logging.info(f"[500][{request.endpoint}][{type(exception).__name__}][{perf}s]")
-    return json({"type":"err", "msg": str(exception)}, status=500)
+    status = getattr(exception, "status", 500)
+    logger.error(
+        f"{request.host} > {request.method} {request.url} : {str(exception)} [{request.load_json()}][{str(status)}][{str(len(str(exception)))}b][{perf}s]"
+    )
+    return json({"type":"err", "msg": str(exception)}, status=status)
 
 @printer.on_request(priority=100)
-async def log_entry(request: Request) -> HTTPResponse:
+async def go_fast(request: Request) -> HTTPResponse:
     request.ctx.t = perf_counter()
-    request.app.ctx.logging.info(f"{request.method} [{request.endpoint}][{request.load_json()}]")
 
 @printer.on_response(priority=100)
 async def log_exit(request: Request, response: HTTPResponse) -> HTTPResponse:
     perf = round(perf_counter() - request.ctx.t, 5)
-    request.app.ctx.logging.info(f"[200][{request.endpoint}][{perf}s]")
+    if response.status == 200:
+        logger.info(
+            f"{request.host} > {request.method} {request.url} [{request.load_json()}][{str(response.status)}][{str(len(response.body))}b][{perf}s]"
+        )
 
 
 @printer.get("/")
@@ -46,7 +55,7 @@ async def job(request: Request) -> HTTPResponse:
     printer: Printer = request.app.ctx.printers.get(pname, None)
     
     if printer is None:
-        return json({"type":"err","msg": "L'imprimante sélectionnée n'existe pas."},status=500)    
+        raise UnknownPrinter()   
     printer.print_job(**payload)
     return json({"type":"ok", "msg": f"Code-barres: {payload['barcode'].value} imprimé"},status=200)
 
@@ -64,7 +73,7 @@ async def hinting(request: Request) -> HTTPResponse:
     input_len = payload["input"]
     
     if enabled_hinting is False:
-        return json({"type": "err","msg": "hinting is desabled"}, status=200)
+        raise HintingDesabled()
     
     elif (odoo_hinting is False or len(input_len) < min_chars_for_odoo):
         # -- use db historical products
