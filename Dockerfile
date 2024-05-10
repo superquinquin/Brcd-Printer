@@ -1,5 +1,5 @@
 ###################################################################################
-FROM  python:3.12-slim as base
+FROM  python:3.11-slim as base
 
 # Set apt variables to avoid interactive mode
 ENV  DEBIAN_FRONTEND=noninteractive
@@ -70,7 +70,7 @@ COPY . ${APP_DIR}/
 RUN poetry install --no-interaction --no-ansi --only main
 
 EXPOSE ${APP_PORT}
-ENTRYPOINT ["sanic asgi:app --host=0.0.0.0 --port=${APP_PORT} --workers=${APP_WORKERS}"]
+ENTRYPOINT ["sanic asgi:app --host=0.0.0.0 --port=${APP_PORT} --single-process --no-motd"]
 
 # Label the docker image
 LABEL name="${LABEL_NAME}"
