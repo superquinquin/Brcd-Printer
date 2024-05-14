@@ -21,25 +21,38 @@ RUN  apt-get update \
 RUN  apt-get clean
 RUN  rm -rf /var/lib/apt/lists/*
 # Add default user for the docker container to be used as non-root
-RUN  adduser superquinquin
+RUN  useradd -rm -d "/home/superquinquin" -s "/bin/bash" -u 1001 superquinquin
 
 ###################################################################################
 FROM  base as pybase
+
+ENV  DEBIAN_FRONTEND=noninteractive
 # Keeps Python from generating .pyc files in the container
 ENV  PYTHONDONTWRITEBYTECODE=1
 # Turns off buffering for easier container logging
 ENV  PYTHONUNBUFFERED=1
 # Configure PIP
+ENV  APP_DIR="/home/superquinquin/app"
 ENV  PIP_NO_CACHE_DIR=off \
     PIP_DISABLE_PIP_VERSION_CHECK=on \
-    PIP_DEFAULT_TIMEOUT=100
+    PIP_DEFAULT_TIMEOUT=100 \
+    POETRY_NO_INTERACTION=1 \
+    POETRY_HOME="/home/superquinquin/poetry" \
+    POETRY_VIRTUALENVS_IN_PROJECT=1 \
+    POETRY_VIRTUALENVS_CREATE=1 \
+    POETRY_CACHE_DIR="/tmp/poetry_cache"
 # Configure Poetry
-ENV  POETRY_VERSION=1.7.1
+ENV  POETRY_VERSION=1.8.2
 # DL4006 info: Set the SHELL option -o pipefail before RUN with a pipe in it.
 SHELL  ["/bin/bash", "-o", "pipefail", "-c"]
 USER superquinquin
 # Install poetry
-RUN  curl -sSL https://install.python-poetry.org | python3 - --version ${POETRY_VERSION}
+ENV PATH="$POETRY_HOME/bin:$PATH"
+RUN  curl -sSL https://install.python-poetry.org | /usr/local/bin/python3 - --version ${POETRY_VERSION}
+WORKDIR $APP_DIR
+COPY poetry.lock pyproject.toml ./
+# install runtime deps - uses $POETRY_VIRTUALENVS_IN_PROJECT internally
+RUN poetry install --only main && rm -rf $POETRY_CACHE_DIR
 
 
 ###################################################################################
@@ -49,28 +62,33 @@ ARG  LABEL_NAME="printer"
 ARG  LABEL_VERSION="0.2.0"
 ARG  LABEL_URL="https://github.com/superquinquin/Brcd-Printer/"
 
-ENV  APP_DIR="/home/superquinquin/printer"
+ENV  APP_DIR="/home/superquinquin/app"
 ENV  APP_PORT=8000
 ENV  APP_WORKERS=1
-ENV  PATH="/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:~/.local/bin"
+ENV PATH="$POETRY_HOME/bin:$PATH"
 # Keeps Python from generating .pyc files in the container
 ENV  PYTHONDONTWRITEBYTECODE=1
 # Turns off buffering for easier container logging
 ENV  PYTHONUNBUFFERED=1
 # Setup the poetry / pip env
-ENV  PIP_DEFAULT_TIMEOUT=100 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PIP_NO_CACHE_DIR=1 \
-    VIRTUAL_ENV=${INSTALL_DIR}
+
+ENV  PIP_NO_CACHE_DIR=off \
+    PIP_DISABLE_PIP_VERSION_CHECK=on \
+    PIP_DEFAULT_TIMEOUT=100 \
+    POETRY_HOME="/home/superquinquin/poetry" \
+    POETRY_NO_INTERACTION=1 \
+    POETRY_VIRTUALENVS_IN_PROJECT=1 \
+    POETRY_VIRTUALENVS_CREATE=0 \
+    POETRY_CACHE_DIR="/tmp/poetry_cache"
 
 WORKDIR  ${APP_DIR}
 USER superquinquin
 
-COPY . ${APP_DIR}/
-RUN poetry install --no-interaction --no-ansi --only main
+COPY --chown=superquinquin:superquinquin --from=pybase ${POETRY_HOME} ${POETRY_HOME}
+COPY --chown=superquinquin:superquinquin . ${APP_DIR}/
 
 EXPOSE ${APP_PORT}
-ENTRYPOINT ["sanic asgi:app --host=0.0.0.0 --port=${APP_PORT} --single-process --no-motd"]
+ENTRYPOINT ["poetry", "run", "sanic", "asgi:app", "--host=0.0.0.0", "--port=${APP_PORT}", "--single-process", "--no-motd"]
 
 # Label the docker image
 LABEL name="${LABEL_NAME}"
