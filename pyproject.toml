@@ -1,8 +1,8 @@
 [tool.poetry]
 name = "printer"
-version = "0.2.0"
-description = ""
-authors = ["rviry <rom88.viry@gmail.com>"]
+version = "0.3.0"
+description = "Barcode Printer"
+authors = ["rviry <rom88.viry@gmail.com>", "Fabien VINCENT <github@beufa.fr>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
