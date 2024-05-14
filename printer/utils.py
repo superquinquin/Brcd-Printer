@@ -1,5 +1,5 @@
 import re
-
+from time import time
 
 from typing import Dict, Any
 
@@ -17,3 +17,7 @@ def parse_subean(payload: Payload) -> Payload:
     
     payload.update({"_type": _field_inference(payload["input"])})
     return payload
+
+def ttl_hash(seconds=3600):
+    """make time sensitive lru_cache. cached arguments in use for s seconds"""
+    return round(time() / seconds)

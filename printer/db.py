@@ -1,8 +1,10 @@
 from __future__ import annotations
-from functools import partial
+from functools import partial, lru_cache
 from sqlite3 import Cursor, Row, connect
 
 from typing import Dict, Any, TypeVar, Literal, Optional
+
+from printer.utils import ttl_hash
 
 Record = Dict[str, Any]
 _SqliteTypes = TypeVar("_SqliteTypes", str, int, bool, bytes)
@@ -93,12 +95,18 @@ class Database(object):
         
     def fuzzy_search_product(self, input: str, _type: str, limit: int) -> list[Record]:
         if _type == "barcode":
-            res = self._fuzzy_search_product_barcode(input, limit)
+            res = self._fuzzy_search_product_barcode(input, limit, ttl_hash=ttl_hash())
         else:
-            res = self._fuzzy_search_product_name(input, limit)
+            res = self._fuzzy_search_product_name(input, limit, ttl_hash=ttl_hash())
         return res
-        
-    def _fuzzy_search_product_barcode(self, barcode:str, limit: Optional[int] | None = None) -> list[Record]:
+    
+    @lru_cache(maxsize=32)
+    def _fuzzy_search_product_barcode(
+        self,
+        barcode:str,
+        limit: Optional[int] | None = None,
+        ttl_hash: Optional[int] | None = None
+        ) -> list[Record]:
         res = self.con.execute(
             f"""
             SELECT product.name, product.pid, barcode
@@ -118,7 +126,13 @@ class Database(object):
                 products.append(r)
         return products
     
-    def _fuzzy_search_product_name(self, name: str, limit: Optional[int] | None = None) -> list[Record]:
+    @lru_cache(maxsize=32)
+    def _fuzzy_search_product_name(
+        self,
+        name: str,
+        limit: Optional[int] | None = None,
+        ttl_hash: Optional[int] | None = None
+        ) -> list[Record]:
         res = self.con.execute(
             f"""
             SELECT product.name, product.pid, barcode

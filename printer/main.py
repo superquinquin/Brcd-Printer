@@ -1,14 +1,14 @@
 from __future__ import annotations
 from os import environ
 from sanic import Sanic
+from sanic.log import LOGGING_CONFIG_DEFAULTS
 
 from typing import Dict, Any, Optional
 
 from printer.db import Database
 from printer.odoo import Odoo
 from printer.printers import Printer
-from printer.log import Logger, SimpleStreamLogger
-from printer.routes import printer
+from printer.routes import printer, error_handler
 from printer.parsers import get_config
 
 
@@ -45,21 +45,21 @@ class Brcdprinter(object):
         printers: Payload,
         db: Optional[Payload] | None = None,
         odoo: Optional[Payload] | None = None,
-        logger: Optional[Payload] | None = None
+        logging: Optional[Payload] | None = None
         ) -> None:
         self.env = env
         self.print_banner()
 
-        if logger:
-            logging = Logger(**logger)
-        else:
-            logging = SimpleStreamLogger()
+                
+        logging["loggers"].update(LOGGING_CONFIG_DEFAULTS["loggers"])
+        logging["handlers"].update(LOGGING_CONFIG_DEFAULTS["handlers"])
+        logging["formatters"].update(LOGGING_CONFIG_DEFAULTS["formatters"])
         
-        self.app = Sanic("app")
+        self.app = Sanic("BRCDPrinter", log_config=logging)
         self.app.static('/static', sanic.get("static"))
         self.app.config.update({k.upper():v for k,v in sanic.get("app", {}).items()})
         self.app.blueprint(printer)
-        self.app.ctx.logging = logging.log
+        self.app.error_handler.add(Exception, error_handler)
 
         default = printers.get("default", None)
         pprinters = printers.get("printers", None)

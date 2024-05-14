@@ -1,8 +1,11 @@
 from __future__ import annotations
 import time
+from functools import lru_cache
 from erppeek import Client, Record
 
 from typing import Dict, Any, Optional
+
+from printer.utils import ttl_hash
 
 
 
@@ -57,15 +60,27 @@ class Odoo(object):
 
     def fuzzy_search_product(self, input:str, _type:str, limit: Optional[int] | None = None) -> list[Dict[str, Any]]:
         if _type == "barcode":
-            res = self._fuzzy_search_product_barcode(input, limit)
+            res = self._fuzzy_search_product_barcode(input, limit, ttl_hash=ttl_hash())
         else:
-            res = self._fuzzy_search_product_name(input, limit)
+            res = self._fuzzy_search_product_name(input, limit, ttl_hash=ttl_hash())
         return res
     
-    def _fuzzy_search_product_barcode(self, barcode: str, limit: Optional[int] | None = None) -> list[Dict[str, Any]]:
+    @lru_cache(maxsize=32)
+    def _fuzzy_search_product_barcode(
+        self, 
+        barcode: str, 
+        limit: Optional[int] | None = None, 
+        ttl_hash: Optional[int] | None = None
+        ) -> list[Dict[str, Any]]:
         res = self.client.model("product.product").browse([("active", "=", True),("barcode", "like", barcode)], limit=limit)
         return [{"barcode": r.barcode, "name": r.name} for r in res]
     
-    def _fuzzy_search_product_name(self, name: str, limit: Optional[int] | None = None) -> list[Dict[str, Any]]:
+    @lru_cache(maxsize=32)
+    def _fuzzy_search_product_name(
+        self, 
+        name: str, 
+        limit: Optional[int] | None = None,
+        ttl_hash: Optional[int] | None = None
+        ) -> list[Dict[str, Any]]:
         res = self.client.model("product.product").browse([("active", "=", True), ("name", "ilike", name)], limit=limit)
         return [{"barcode": r.barcode, "name": r.name} for r in res]
