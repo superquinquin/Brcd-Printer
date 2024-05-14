@@ -5,8 +5,9 @@ services:
   printer_production:
     build:
       context: https://github.com/superquinquin/Brcd-Printer.git#main
-    env_file: .env
+    env_file: .env_production
     image: brcd:latest
+    container_name: brcd_printer_production
     ports:
       - "8000:8000"
     networks:
@@ -18,8 +19,9 @@ services:
   printer_staging:
     build:
       context: https://github.com/superquinquin/Brcd-Printer.git#staging
-    env_file: .env
+    env_file: .env_staging
     image: brcd:staging
+    container_name: brcd_printer_staging
     ports:
       - "8001:8000"
     networks:
