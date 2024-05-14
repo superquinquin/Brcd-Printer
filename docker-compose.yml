@@ -2,16 +2,31 @@
 version: "3.3"
 
 services:
-  printer:
-    build: .
-    container_name: printer
+  printer_production:
+    build:
+      context: https://github.com/superquinquin/Brcd-Printer.git#main
     env_file: .env
+    image: brcd:latest
     ports:
       - "8000:8000"
     networks:
       - printer
     volumes:
-      - ./volume:/home/superquinquin/printer/volume
+      - ./volume_production:/home/superquinquin/printer/volume
+    restart: unless-stopped
+
+  printer_staging:
+    build:
+      context: https://github.com/superquinquin/Brcd-Printer.git#staging
+    env_file: .env
+    image: brcd:staging
+    ports:
+      - "8001:8000"
+    networks:
+      - printer
+    volumes:
+      - ./volume_staging:/home/superquinquin/printer/volume
+    restart: unless-stopped
 
 networks:
   printer:
