@@ -5,27 +5,31 @@ services:
   printer_production:
     build:
       context: https://github.com/superquinquin/Brcd-Printer.git#main
-    env_file: .env
+    env_file: .env_production
     image: brcd:latest
+    container_name: brcd_printer_production
     ports:
       - "8000:8000"
     networks:
       - printer
     volumes:
-      - ./volume_production:/home/superquinquin/printer/volume
+      - ./volume_production:/home/superquinquin/app/volume
+      - ./printer_configs/config_production.yaml:/home/superquinquin/app/printer_configs/config_production.yaml
     restart: unless-stopped
 
   printer_staging:
     build:
       context: https://github.com/superquinquin/Brcd-Printer.git#staging
-    env_file: .env
+    env_file: .env_staging
     image: brcd:staging
+    container_name: brcd_printer_staging
     ports:
       - "8001:8000"
     networks:
       - printer
     volumes:
-      - ./volume_staging:/home/superquinquin/printer/volume
+      - ./volume_staging:/home/superquinquin/app/volume
+      - ./printer_configs/config_staging.yaml:/home/superquinquin/app/printer_configs/config_staging.yaml
     restart: unless-stopped
 
 networks:

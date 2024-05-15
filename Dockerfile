@@ -59,12 +59,10 @@ RUN poetry install --only main && rm -rf $POETRY_CACHE_DIR
 FROM pybase as final
 
 ARG  LABEL_NAME="printer"
-ARG  LABEL_VERSION="0.2.0"
+ARG  LABEL_VERSION="0.3.0"
 ARG  LABEL_URL="https://github.com/superquinquin/Brcd-Printer/"
 
 ENV  APP_DIR="/home/superquinquin/app"
-ENV  APP_PORT=8000
-ENV  APP_WORKERS=1
 ENV PATH="$POETRY_HOME/bin:$PATH"
 # Keeps Python from generating .pyc files in the container
 ENV  PYTHONDONTWRITEBYTECODE=1
@@ -87,8 +85,8 @@ USER superquinquin
 COPY --chown=superquinquin:superquinquin --from=pybase ${POETRY_HOME} ${POETRY_HOME}
 COPY --chown=superquinquin:superquinquin . ${APP_DIR}/
 
-EXPOSE ${APP_PORT}
-ENTRYPOINT ["poetry", "run", "sanic", "asgi:app", "--host=0.0.0.0", "--port=${APP_PORT}", "--single-process", "--no-motd"]
+EXPOSE 8000
+ENTRYPOINT ["poetry", "run", "sanic", "asgi:app", "--host=0.0.0.0", "--port=8000", "--single-process", "--no-motd"]
 
 # Label the docker image
 LABEL name="${LABEL_NAME}"
