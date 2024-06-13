@@ -4,6 +4,7 @@
 async function sendJob() {
     let barcode = document.getElementById("txtInput").value;
     let qty = document.getElementById("qtyInput").value;
+    document.getElementById("JobSender").disabled = true;
     payload = {
         method: "POST", 
         mode: "cors", 
@@ -21,6 +22,7 @@ async function sendJob() {
         document.getElementById("txtInput").value = "";
         document.getElementById("qtyInput").value = 1;
     }
+    document.getElementById("JobSender").disabled = false;
     HideHints();
 }    
 
