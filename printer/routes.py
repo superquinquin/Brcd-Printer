@@ -50,20 +50,24 @@ async def log_exit(request: Request, response: HTTPResponse) -> HTTPResponse:
 async def index(request: Request):
     return await render("index.html")
 
+@app.route("/header_img")
+async def proxy(request, Request):
+    return redirect(f"/static/img/barcode_{self.env}.png")
+
 @printer.post("/job")
 @validator
 @odoo_validator
 async def job(request: Request) -> HTTPResponse:
     pname = request.ctx.printer
     payload = request.ctx.payload
-    
+
     if pname is None:
         pname = request.app.ctx.default_printer
     printer: Printer = request.app.ctx.printers.get(pname, None)
-    
+
     if printer is None:
-        raise UnknownPrinter() 
-    
+        raise UnknownPrinter()
+
     try:
         f = io.StringIO()
         with contextlib.redirect_stdout(f):
@@ -75,7 +79,7 @@ async def job(request: Request) -> HTTPResponse:
         logger_brotherql.error(traceback.format_exc())
         logger_brotherql.error(e)
         raise UnknownPrinter()
-        
+
     return json({"type":"ok", "msg": f"Code-barres: {payload['barcode'].value} imprimé"},status=200)
 
 
@@ -90,15 +94,15 @@ async def hinting(request: Request) -> HTTPResponse:
     odoo_limits = opts.get("odoo_hint_limit", 5)
     db_limits = opts.get("db_hint_limit", 5)
     input_len = payload["input"]
-    
+
     if enabled_hinting is False:
         raise HintingDesabled()
-    
+
     elif (odoo_hinting is False or len(input_len) < min_chars_for_odoo):
         # -- use db historical products
         db: Database = request.app.ctx.db
         res = db.fuzzy_search_product(**payload, limit=db_limits)
-    
+
     elif odoo_hinting:
         odoo: Odoo = request.app.ctx.odoo
         res = odoo.fuzzy_search_product(**payload, limit=odoo_limits)
@@ -118,7 +122,7 @@ async def get_products(request:Request) -> HTTPResponse:
     db: Database = request.app.ctx.db
     res = db.get_products()
     return json(res, status=200)
-    
+
 @printer.get("/barcodes")
 async def get_barcodes(request:Request) -> HTTPResponse:
     db: Database = request.app.ctx.db
