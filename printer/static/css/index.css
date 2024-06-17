@@ -55,11 +55,13 @@ body {
 
 .logo {
     margin: 0 auto;
-    height: 100px
+    width: 300px
 }
 
 .logo img {
-    height: 100px;
+    margin: 0 auto;
+    width: 300px;
+    object-fit: contain;
 }
 
 /* BARCODE INPUT SECTION */
