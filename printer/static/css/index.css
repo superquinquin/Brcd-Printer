@@ -1,6 +1,5 @@
-
 :root {
-    --primary: #CDE6F5;
+    --primary: #F7EEBB;
     --primary-shade: #DDEEF8;
     --secondary: #3C312E;
     --secondary-shade: #685550;
@@ -55,12 +54,13 @@ body {
 
 .logo {
     margin: 0 auto;
-    width: 300px
+    width: 400px;
+    min-height: 450px;
 }
 
 .logo img {
     margin: 0 auto;
-    width: 300px;
+    width: 372px;
     object-fit: contain;
 }
 
