@@ -51,7 +51,7 @@ async def index(request: Request):
     return await render("index.html")
 
 @printer.get("/header_img")
-async def header_img(request: Request)):
+async def header_img(request: Request):
     return redirect(f"static/img/barcode_{self.env}.png")
 
 @printer.post("/job")
