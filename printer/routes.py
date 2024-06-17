@@ -52,7 +52,7 @@ async def index(request: Request):
 
 @app.route("/header_img")
 async def proxy(request, Request):
-    return redirect(f"/static/img/barcode_{self.env}.png")
+    return redirect(f"static/img/barcode_{self.env}.png")
 
 @printer.post("/job")
 @validator
