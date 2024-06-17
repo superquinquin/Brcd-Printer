@@ -50,7 +50,7 @@ async def log_exit(request: Request, response: HTTPResponse) -> HTTPResponse:
 async def index(request: Request):
     return await render("index.html")
 
-@app.route("/header_img")
+@printer.get("/header_img")
 async def proxy(request, Request):
     return redirect(f"static/img/barcode_{self.env}.png")
 
