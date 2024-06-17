@@ -7,7 +7,7 @@ import traceback
 from time import perf_counter
 from sanic import Blueprint
 from sanic.request import Request
-from sanic.response import HTTPResponse, json
+from sanic.response import HTTPResponse, json, redirect
 from sanic_ext import render
 
 from printer.validator import validator, odoo_validator
