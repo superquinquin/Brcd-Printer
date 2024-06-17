@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="../static/css/index.css">
+    <link rel="stylesheet" href="static/css/index.css">
     <title>BarcodePrinter</title>
 </head>
 <body>
@@ -12,13 +12,13 @@
         <div class="barcode">
             <!-- <label class="input-label" for="barcode">Your barcode:</label> -->
             <div class="input-field">
-                <input id="txtInput" class="leftfield border" name="barcode" value="" autofocus placeholder="Votre code-barres..." autocomplete="off"> 
+                <input id="txtInput" class="leftfield border" name="barcode" value="" autofocus placeholder="Votre code-barres..." autocomplete="off">
                 <input id="qtyInput" class="midfield border" type="number" value="1" min="1" max="32" name="quantity">
                 <button id="JobSender" class="rightfield border" type="button" onclick="sendJob()">Imprimer</button>
             </div>
         </div>
         <div id="hint-container" class="hint-container border" style="display: none;"></div>
     </main>
-    <script type="text/javascript" src="../static/js/index.js"></script>
-</body> 
+    <script type="text/javascript" src="static/js/index.js"></script>
+</body>
 </html>
