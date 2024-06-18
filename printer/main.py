@@ -57,6 +57,7 @@ class Brcdprinter(object):
         
         self.app = Sanic("BRCDPrinter", log_config=logging)
         self.app.static('/static', sanic.get("static"))
+        self.app.config.update({"ENV": env})
         self.app.config.update({k.upper():v for k,v in sanic.get("app", {}).items()})
         self.app.blueprint(printer)
         self.app.error_handler.add(Exception, error_handler)
@@ -76,7 +77,7 @@ class Brcdprinter(object):
             if erp is None:
                 raise KeyError("you must set odoo credentials")
             self.app.ctx.odoo = Odoo(**erp)
-            
+
         self.app.ctx.options = options
         self.app.ctx.barcodes = barcodes
             

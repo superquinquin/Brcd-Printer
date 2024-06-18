@@ -15,11 +15,10 @@ from printer.utils import parse_subean
 from printer.db import Database
 from printer.odoo import Odoo
 from printer.printers import Printer
-from printer.exception import BrcdPrinterException, UnknownPrinter, HintingDesabled
+from printer.exception import BrcdPrinterException, UnknownPrinter, HintingDesabled, BrotherQLError
 
 
 logger = logging.getLogger("endpointAccess")
-logger_brotherql = logging.getLogger("brotherQl")
 printer = Blueprint("printer")
 
 async def error_handler(request: Request, exception: Exception):
@@ -63,19 +62,8 @@ async def job(request: Request) -> HTTPResponse:
 
     if printer is None:
         raise UnknownPrinter()
-
-    try:
-        f = io.StringIO()
-        with contextlib.redirect_stdout(f):
-            res = await printer.print_job(**payload)
-        logger_brotherql.info(f.getvalue())
-        logger_brotherql.info(res)
-    except Exception as e:
-        # brother-ql Exceptions
-        logger_brotherql.error(traceback.format_exc())
-        logger_brotherql.error(e)
-        raise UnknownPrinter()
-
+    
+    await printer.print_job(**payload)
     return json({"type":"ok", "msg": f"Code-barres: {payload['barcode'].value} imprimé"},status=200)
 
 

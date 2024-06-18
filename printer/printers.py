@@ -1,8 +1,13 @@
 import re
+import logging
 import subprocess
 from tempfile import NamedTemporaryFile
 from typing import Literal, get_args
 from printer.barcodes import BarcodeGenerator
+from printer.exception import BrotherQLError
+
+
+
 
 Backends = Literal["network", "pyusb", "linux_kernel"]
 Models = Literal[
@@ -41,6 +46,11 @@ DIMENSIONS = {
     "d58":(618, 618),
 }
 
+
+logger = logging.getLogger("brotherQl")
+if logger.hasHandlers() is False:
+    logger = None
+
 class Printer(object):
     def __init__(
         self,
@@ -66,27 +76,28 @@ class Printer(object):
         self.dimensions = dimensions
         self.img_dimensions = DIMENSIONS.get(dimensions)
        
-    def print_job(self, barcode: BarcodeGenerator, qty: int) -> None:
+    async def print_job(self, barcode: BarcodeGenerator, qty: int) -> None:
         with NamedTemporaryFile(suffix=".png") as fp:
             barcode.write(fp.name, self.img_dimensions)
-            self._print(fp.name, qty)
+            await self._print(fp.name, qty)
         
-    def _print(self, fp: str, qty: int) -> None:
+    async def _print(self, fp: str, qty: int) -> None:
+        cmd = ["brother_ql", "-b", self.backend, "-m", self.model, "-p", self.address, "print", "-l", self.dimensions, fp]
         for _ in range(qty):
-         subprocess.run(
-                [
-                    "brother_ql",
-                    "-b", 
-                    self.backend,
-                    "-m",
-                    self.model,
-                    "-p",
-                    self.address,
-                    "print",
-                    "-l",
-                    self.dimensions,
-                    fp
-                ]
-            )
-
-    
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+            out = p.communicate(timeout=5)
+            self.parse_job_communication(out)
+            
+    def parse_job_communication(self, res: tuple[str, str]) -> None:
+        out, err = res
+        out, err = out.decode("utf-8"), err.decode("utf-8")
+        if "Traceback" in err and logger is not None:
+            err = out + err
+            logger.error(err.strip("\n"))
+            raise BrotherQLError()
+        elif "Traceback" in err and logger is None:
+            raise BrotherQLError()
+        elif "Traceback" not in err and logger is not None:
+            out= out + err
+            logger.info(out.strip("\n"))
+            
