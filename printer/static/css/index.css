@@ -55,6 +55,7 @@ body {
 .logo {
     margin: 0 auto;
     width: 400px;
+    padding: 50px;
 }
 
 .logo img {
