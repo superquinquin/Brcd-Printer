@@ -55,12 +55,11 @@ body {
 .logo {
     margin: 0 auto;
     width: 400px;
-    min-height: 450px;
 }
 
 .logo img {
     margin: 0 auto;
-    width: 200px;
+    width: 372px;
     object-fit: contain;
 }
 
