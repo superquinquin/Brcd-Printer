@@ -27,7 +27,7 @@ html {
 }
 
 body {
-    margin: 300px auto;
+    margin: 30px auto;
     width: var(--main-w);
 }
 
@@ -39,7 +39,7 @@ body {
 
 @media ( height <= 1100px) {
     body {
-        margin: 200px auto;
+        margin: 20px auto;
     }
 }
 
