@@ -38,3 +38,11 @@ class HintingDesabled(BrcdPrinterException):
     status = 400
     def __init__(self) -> None:
         super().__init__(self.message)
+        
+        
+class BrotherQLError(BrcdPrinterException):
+    message = """Une erreur c'est produit pendant l'impression."""
+    status = 500
+    def __init__(self) -> None:
+        super().__init__(self.message)
+    

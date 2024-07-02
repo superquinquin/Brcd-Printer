@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import traceback
 from time import perf_counter
 from sanic import Blueprint
 from sanic.request import Request
@@ -12,7 +13,11 @@ from printer.utils import parse_subean
 from printer.db import Database
 from printer.odoo import Odoo
 from printer.printers import Printer
-from printer.exception import UnknownPrinter, HintingDesabled
+from printer.exception import (
+    BrcdPrinterException,
+    UnknownPrinter,
+    HintingDesabled
+)
 
 
 logger = logging.getLogger("endpointAccess")
@@ -24,6 +29,9 @@ async def error_handler(request: Request, exception: Exception):
     logger.error(
         f"{request.host} > {request.method} {request.url} : {str(exception)} [{request.load_json()}][{str(status)}][{str(len(str(exception)))}b][{perf}s]"
     )
+    if not isinstance(exception.__class__.__base__, BrcdPrinterException):
+        # log traceback of non handled errors
+        logger.error(traceback.format_exc())
     return json({"type":"err", "msg": str(exception)}, status=status)
 
 @printer.on_request(priority=100)
@@ -49,14 +57,15 @@ async def index(request: Request):
 async def job(request: Request) -> HTTPResponse:
     pname = request.ctx.printer
     payload = request.ctx.payload
-    
+
     if pname is None:
         pname = request.app.ctx.default_printer
     printer: Printer = request.app.ctx.printers.get(pname, None)
-    
+
     if printer is None:
-        raise UnknownPrinter()   
-    printer.print_job(**payload)
+        raise UnknownPrinter()
+    
+    await printer.print_job(**payload)
     return json({"type":"ok", "msg": f"Code-barres: {payload['barcode'].value} imprimé"},status=200)
 
 
@@ -71,15 +80,15 @@ async def hinting(request: Request) -> HTTPResponse:
     odoo_limits = opts.get("odoo_hint_limit", 5)
     db_limits = opts.get("db_hint_limit", 5)
     input_len = payload["input"]
-    
+
     if enabled_hinting is False:
         raise HintingDesabled()
-    
+
     elif (odoo_hinting is False or len(input_len) < min_chars_for_odoo):
         # -- use db historical products
         db: Database = request.app.ctx.db
         res = db.fuzzy_search_product(**payload, limit=db_limits)
-    
+
     elif odoo_hinting:
         odoo: Odoo = request.app.ctx.odoo
         res = odoo.fuzzy_search_product(**payload, limit=odoo_limits)
@@ -99,7 +108,7 @@ async def get_products(request:Request) -> HTTPResponse:
     db: Database = request.app.ctx.db
     res = db.get_products()
     return json(res, status=200)
-    
+
 @printer.get("/barcodes")
 async def get_barcodes(request:Request) -> HTTPResponse:
     db: Database = request.app.ctx.db
