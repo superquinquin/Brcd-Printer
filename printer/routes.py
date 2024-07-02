@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import logging
-import io
-import contextlib
 import traceback
 from time import perf_counter
 from sanic import Blueprint
 from sanic.request import Request
-from sanic.response import HTTPResponse, json, redirect
+from sanic.response import HTTPResponse, json
 from sanic_ext import render
 
 from printer.validator import validator, odoo_validator
@@ -15,7 +13,11 @@ from printer.utils import parse_subean
 from printer.db import Database
 from printer.odoo import Odoo
 from printer.printers import Printer
-from printer.exception import BrcdPrinterException, UnknownPrinter, HintingDesabled, BrotherQLError
+from printer.exception import (
+    BrcdPrinterException,
+    UnknownPrinter,
+    HintingDesabled
+)
 
 
 logger = logging.getLogger("endpointAccess")
@@ -27,7 +29,7 @@ async def error_handler(request: Request, exception: Exception):
     logger.error(
         f"{request.host} > {request.method} {request.url} : {str(exception)} [{request.load_json()}][{str(status)}][{str(len(str(exception)))}b][{perf}s]"
     )
-    if isinstance(exception.__class__.__base__, BrcdPrinterException):
+    if not isinstance(exception.__class__.__base__, BrcdPrinterException):
         # log traceback of non handled errors
         logger.error(traceback.format_exc())
     return json({"type":"err", "msg": str(exception)}, status=status)
