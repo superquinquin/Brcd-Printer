@@ -1,14 +1,16 @@
 from __future__ import annotations
-from os import environ
-from sanic import Sanic
+
+import os
+from pathlib import Path
+from sanic import Sanic, config
 from sanic.log import LOGGING_CONFIG_DEFAULTS
 
 from typing import Dict, Any, Optional
 
 from printer.db import Database
-from printer.odoo import Odoo
+from printer.odoo import OdooConnector
 from printer.printers import Printer
-from printer.routes import printer, error_handler
+from printer.routes import printer, error_handler, go_fast, log_exit
 from printer.parsers import get_config
 
 
@@ -50,16 +52,16 @@ class Brcdprinter(object):
         self.env = env
         self.print_banner()
 
-                
-        logging["loggers"].update(LOGGING_CONFIG_DEFAULTS["loggers"])
-        logging["handlers"].update(LOGGING_CONFIG_DEFAULTS["handlers"])
-        logging["formatters"].update(LOGGING_CONFIG_DEFAULTS["formatters"])
-        
-        self.app = Sanic("BRCDPrinter", log_config=logging)
-        self.app.static('/static', sanic.get("static"))
-        self.app.config.update({"ENV": env})
+        self.app = Sanic("BRCDPrinter", log_config=self.configurate_logging(logging))
+
+        self.app.static('/static', sanic["static"])
         self.app.config.update({k.upper():v for k,v in sanic.get("app", {}).items()})
+        self.app.config.update({"ENV": env})
+        
         self.app.blueprint(printer)
+
+        self.app.on_request(go_fast, priority=100)
+        self.app.on_response(log_exit, priority=100)
         self.app.error_handler.add(Exception, error_handler)
 
         default = printers.get("default", None)
@@ -71,21 +73,23 @@ class Brcdprinter(object):
 
         if db:
             self.mount_db(db)        
-        
-        if odoo:
-            erp = odoo.get("erp", None)
-            if erp is None:
-                raise KeyError("you must set odoo credentials")
-            self.app.ctx.odoo = Odoo(**erp)
 
+        connector = OdooConnector.from_env()
+        self.app.ctx.odoo = connector
         self.app.ctx.options = options
         self.app.ctx.barcodes = barcodes
-            
+
     @classmethod
-    def create_app(cls):
-        cfg = get_config(environ.get("CONFIG_FILEPATH", "./printer_configs/config.yaml"))
-        return cls(**cfg)
-    
+    def create_app(cls, path: str | Path | None = None) -> Brcdprinter:
+        env_path = os.environ.get("CONFIG_FILEPATH", None)
+        if path is None and env_path is None:
+            raise ValueError("Configs file path not found.")
+        if path is None:
+            path = env_path
+        assert path is not None
+        configs = get_config(str(path))
+        return cls(**configs)
+
     def print_banner(self):
         print(banner)
         print(f"Booting {self.env} ENV")
@@ -108,3 +112,12 @@ class Brcdprinter(object):
         if kwargs is None:
             raise KeyError("You must pass Kawargs into the db config")
         self.app.ctx.db = Database(**kwargs)
+
+    def configurate_logging(self, configs: dict[str, Any] | None = None) -> dict[str, Any]:
+        if configs is None:
+            return LOGGING_CONFIG_DEFAULTS
+        configs["loggers"].update(LOGGING_CONFIG_DEFAULTS["loggers"])
+        configs["handlers"].update(LOGGING_CONFIG_DEFAULTS["handlers"])
+        configs["formatters"].update(LOGGING_CONFIG_DEFAULTS["formatters"])
+        return configs
+        
