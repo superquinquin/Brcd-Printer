@@ -11,20 +11,11 @@ from printer.db import Database
 from printer.odoo import OdooConnector
 from printer.printers import Printer
 from printer.routes import printer, error_handler, go_fast, log_exit
-from printer.parsers import get_config
+from printer.parsers import ConfigLoader
 
 
 
 Payload = Dict[str, Any]
-
-banner = """\
- ______                     _  ______          _                             
-(____  \                   | |(_____ \        (_)          _                 
- ____)  )  ____   ____   __| | _____) )  ____  _  ____   _| |_  _____   ____ 
-|  __  (  / ___) / ___) / _  ||  ____/  / ___)| ||  _ \ (_   _)| ___ | / ___)
-| |__)  )| |    ( (___ ( (_| || |      | |    | || | | |  | |_ | ____|| |    
-|______/ |_|     \____) \____||_|      |_|    |_||_| |_|   \__)|_____)|_|    
-"""
 
 class Brcdprinter(object):
     """
@@ -87,11 +78,11 @@ class Brcdprinter(object):
         if path is None:
             path = env_path
         assert path is not None
-        configs = get_config(str(path))
+        configs = ConfigLoader(main_configs_name="app").load(path)
         return cls(**configs)
 
     def print_banner(self):
-        print(banner)
+        print(Path("printer/BANNER").read_text())
         print(f"Booting {self.env} ENV")
     
     def register_printers(self, printers: Payload) -> None:
