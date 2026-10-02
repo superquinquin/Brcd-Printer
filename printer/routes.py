@@ -11,7 +11,7 @@ from sanic_ext import render
 from printer.validator import validator, odoo_validator
 from printer.utils import parse_subean
 from printer.db import Database
-from printer.odoo import Odoo
+from printer.odoo import OdooConnector
 from printer.printers import Printer
 from printer.exception import (
     BrcdPrinterException,
@@ -34,18 +34,19 @@ async def error_handler(request: Request, exception: Exception):
         logger.error(traceback.format_exc())
     return json({"type":"err", "msg": str(exception)}, status=status)
 
-@printer.on_request(priority=100)
-async def go_fast(request: Request) -> HTTPResponse:
+async def go_fast(request: Request) -> None:
     request.ctx.t = perf_counter()
 
-@printer.on_response(priority=100)
-async def log_exit(request: Request, response: HTTPResponse) -> HTTPResponse:
+async def log_exit(request: Request, response: HTTPResponse) -> None:
     perf = round(perf_counter() - request.ctx.t, 5)
+    size = 0
+    if response.body is not None:
+        size = len(response.body)
+
     if response.status == 200:
         logger.info(
-            f"{request.host} > {request.method} {request.url} [{request.load_json()}][{str(response.status)}][{str(len(response.body))}b][{perf}s]"
+            f"{request.host} > {request.method} {request.url} [{request.load_json()}][{str(response.status)}][{str(size)}b][{perf}s]"
         )
-
 
 @printer.get("/")
 async def index(request: Request):
@@ -90,9 +91,12 @@ async def hinting(request: Request) -> HTTPResponse:
         res = db.fuzzy_search_product(**payload, limit=db_limits)
 
     elif odoo_hinting:
-        odoo: Odoo = request.app.ctx.odoo
-        res = odoo.fuzzy_search_product(**payload, limit=odoo_limits)
-    payload.update({"results":res})
+        odoo: OdooConnector = request.app.ctx.odoo
+        with odoo.make_session() as session:
+            res = session.fuzzy_search_product(**payload, limit=odoo_limits)
+        payload.update({"results":res})
+    else:
+        payload.update({"results": []})
     return json(payload, status=200)
 
 
