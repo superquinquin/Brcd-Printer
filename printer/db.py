@@ -25,19 +25,19 @@ class Database(object):
         fields = [column[0] for column in cursor.description]
         return {key: value for key, value in zip(fields, row)}
     
-    def add_product(self, values: list[_SqliteTypes]) -> int:
+    def add_product(self, values: list[_SqliteTypes]) -> int | None:
         _writer = partial(self._write, tn="product", cn=["pid", "name"])
         return _writer(values=values)
     
-    def add_barcode(self, values: list[_SqliteTypes]) -> int:
+    def add_barcode(self, values: list[_SqliteTypes]) -> int | None:
         _writer = partial(self._write, tn="barcodes", cn=["barcode", "product_id"])
         return _writer(values=values)
 
-    def add_historic(self, values:list[_SqliteTypes]) -> int:
+    def add_historic(self, values:list[_SqliteTypes]) -> int | None:
         _writer = partial(self._write, tn="historic", cn=["timestamp", "barcode", "quantity", "success", "product_id", "error_name"])
         return _writer(values=values)
     
-    def get_historic(self) -> dict[str, _SqliteTypes]:
+    def get_historic(self) -> list[dict[str, _SqliteTypes]]:
         return self.con.execute(
             """
             SELECT *
@@ -65,7 +65,7 @@ class Database(object):
                 products[p["id"]] = p    
         return products
     
-    def get_barcodes(self) -> dict[_ColNames, _SqliteTypes]:
+    def get_barcodes(self) -> list[dict[_ColNames, _SqliteTypes]]:
         return self.con.execute(
             """
             SELECT product.id, product.name, product.pid, barcode
@@ -156,7 +156,7 @@ class Database(object):
             lmt = f" LIMIT {str(limit)}"
         return lmt
 
-    def _write(self, tn:TableName, cn: list[_ColNames], values: list[_SqliteTypes]) -> int:
+    def _write(self, tn:TableName, cn: list[_ColNames], values: list[_SqliteTypes]) -> int | None:
         _cn_str, _v_anchors = ' ,'.join(cn), ' ,'.join(["?" for _ in range(len(values))])
         self.cursor.execute(f"INSERT OR IGNORE INTO {tn}({_cn_str}) VALUES({_v_anchors});", tuple(values))
         self.con.commit()

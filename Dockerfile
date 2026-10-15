@@ -1,5 +1,52 @@
-###################################################################################
-FROM  python:3.11-slim as base
+# FROM python:3.13-slim as builder
+
+# # Set apt variables to avoid interactive mode
+# ENV  DEBIAN_FRONTEND=noninteractive
+# # DL4006 info: Set the SHELL option -o pipefail before RUN with a pipe in it.
+# SHELL  ["/bin/bash", "-o", "pipefail", "-c"]
+
+# ENV PYTHONUNBUFFERED=1 \
+#     PYTHONDONTWRITEBYTECODE=1 \
+#     \
+#     PIP_NO_CACHE_DIR=off \
+#     PIP_DISABLE_PIP_VERSION_CHECK=on \
+#     PIP_DEFAULT_TIMEOUT=100 \
+#     UV_SYSTEM_PYTHON=1 \
+#     PATH="/root/.local/bin/:$PATH"
+
+# RUN  apt-get update \
+#     && apt-get install --no-install-recommends -y \
+#     apt-utils \
+#     curl \
+#     build-essential \
+#     libssl-dev \
+#     zlib1g-dev \
+#     libjpeg62-turbo-dev
+#     # libpcre3
+#     # libpcre3-dev
+
+
+
+# ADD https://astral.sh/uv/install.sh /uv-installer.sh
+# RUN sh /uv-installer.sh && rm /uv-installer.sh
+
+# WORKDIR /home/superquinquin/app
+# COPY ./pyproject.toml ./uv.lock /home/superquinquin/app
+# RUN uv pip install -r pyproject.toml
+# COPY ./asgi.py /home/superquinquin/app/asgi.py
+# COPY ./printer /home/superquinquin/app/printer
+
+
+
+
+
+
+
+
+
+
+FROM python:3.13-slim AS builder
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Set apt variables to avoid interactive mode
 ENV  DEBIAN_FRONTEND=noninteractive
@@ -11,8 +58,9 @@ RUN  apt-get update \
     && apt-get install --no-install-recommends -y \
     apt-utils \
     curl \
-    libpcre3 \
-    libpcre3-dev \
+    ca-certificates \
+    # libpcre3 \
+    # libpcre3-dev \
     libssl-dev \
     build-essential \
     libjpeg62-turbo-dev \
@@ -20,75 +68,252 @@ RUN  apt-get update \
 # Clean apt to minimize size of image
 RUN  apt-get clean
 RUN  rm -rf /var/lib/apt/lists/*
-# Add default user for the docker container to be used as non-root
-RUN  useradd -rm -d "/home/superquinquin" -s "/bin/bash" -u 1001 superquinquin
 
-###################################################################################
-FROM  base as pybase
+WORKDIR /app
 
-ENV  DEBIAN_FRONTEND=noninteractive
-# Keeps Python from generating .pyc files in the container
-ENV  PYTHONDONTWRITEBYTECODE=1
-# Turns off buffering for easier container logging
-ENV  PYTHONUNBUFFERED=1
-# Configure PIP
-ENV  APP_DIR="/home/superquinquin/app"
-ENV  PIP_NO_CACHE_DIR=off \
-    PIP_DISABLE_PIP_VERSION_CHECK=on \
-    PIP_DEFAULT_TIMEOUT=100 \
-    POETRY_NO_INTERACTION=1 \
-    POETRY_HOME="/home/superquinquin/poetry" \
-    POETRY_VIRTUALENVS_IN_PROJECT=1 \
-    POETRY_VIRTUALENVS_CREATE=1 \
-    POETRY_CACHE_DIR="/tmp/poetry_cache"
-# Configure Poetry
-ENV  POETRY_VERSION=1.8.2
-# DL4006 info: Set the SHELL option -o pipefail before RUN with a pipe in it.
-SHELL  ["/bin/bash", "-o", "pipefail", "-c"]
-USER superquinquin
-# Install poetry
-ENV PATH="$POETRY_HOME/bin:$PATH"
-RUN  curl -sSL https://install.python-poetry.org | /usr/local/bin/python3 - --version ${POETRY_VERSION}
-WORKDIR $APP_DIR
-COPY poetry.lock pyproject.toml ./
-# install runtime deps - uses $POETRY_VIRTUALENVS_IN_PROJECT internally
-RUN poetry install --only main && rm -rf $POETRY_CACHE_DIR
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --locked --no-install-project --no-editable
+
+COPY . /app
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-editable
+
+FROM python:3.13-slim
+COPY --from=builder /app/.venv /app/.venv
+
+WORKDIR /app
+COPY asgi.py /app
+COPY printer /app/printer
+# CMD ["ls", "-a", "printer"]
+ENTRYPOINT [".venv/bin/sanic", "asgi:app", "--host=0.0.0.0", "--port=8000", "--single-process", "--no-motd"]
 
 
-###################################################################################
-FROM pybase as final
+# ###################################################################################
+# FROM  python:3.11-slim as base
 
-ARG  LABEL_NAME="printer"
-ARG  LABEL_VERSION="0.3.0"
-ARG  LABEL_URL="https://github.com/superquinquin/Brcd-Printer/"
+# # Set apt variables to avoid interactive mode
+# ENV  DEBIAN_FRONTEND=noninteractive
+# # DL4006 info: Set the SHELL option -o pipefail before RUN with a pipe in it.
+# SHELL  ["/bin/bash", "-o", "pipefail", "-c"]
 
-ENV  APP_DIR="/home/superquinquin/app"
-ENV PATH="$POETRY_HOME/bin:$PATH"
-# Keeps Python from generating .pyc files in the container
-ENV  PYTHONDONTWRITEBYTECODE=1
-# Turns off buffering for easier container logging
-ENV  PYTHONUNBUFFERED=1
-# Setup the poetry / pip env
+# # Update the list of packages, install minimal packages
+# RUN  apt-get update \
+#     && apt-get install --no-install-recommends -y \
+#     apt-utils \
+#     curl \
+#     ca-certificates \
+#     # libpcre3 \
+#     # libpcre3-dev \
+#     libssl-dev \
+#     build-essential \
+#     libjpeg62-turbo-dev \
+#     zlib1g-dev
+# # Clean apt to minimize size of image
+# RUN  apt-get clean
+# RUN  rm -rf /var/lib/apt/lists/*
+# # Add default user for the docker container to be used as non-root
+# RUN  useradd -rm -d "/home/superquinquin" -s "/bin/bash" -u 1001 superquinquin
 
-ENV  PIP_NO_CACHE_DIR=off \
-    PIP_DISABLE_PIP_VERSION_CHECK=on \
-    PIP_DEFAULT_TIMEOUT=100 \
-    POETRY_HOME="/home/superquinquin/poetry" \
-    POETRY_NO_INTERACTION=1 \
-    POETRY_VIRTUALENVS_IN_PROJECT=1 \
-    POETRY_VIRTUALENVS_CREATE=0 \
-    POETRY_CACHE_DIR="/tmp/poetry_cache"
 
-WORKDIR  ${APP_DIR}
-USER superquinquin
+# ###################################################################################
+# FROM  base as pybase
+# COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-COPY --chown=superquinquin:superquinquin --from=pybase ${POETRY_HOME} ${POETRY_HOME}
-COPY --chown=superquinquin:superquinquin . ${APP_DIR}/
+# ENV  DEBIAN_FRONTEND=noninteractive
+# # Keeps Python from generating .pyc files in the container
+# ENV  PYTHONDONTWRITEBYTECODE=1
+# # Turns off buffering for easier container logging
+# ENV  PYTHONUNBUFFERED=1
+# # Configure PIP
+# ENV  APP_DIR="/home/superquinquin/app"
+# ENV PYTHONUNBUFFERED=1 \
+#     PYTHONDONTWRITEBYTECODE=1 \
+#     \
+#     PIP_NO_CACHE_DIR=off \
+#     PIP_DISABLE_PIP_VERSION_CHECK=on \
+#     PIP_DEFAULT_TIMEOUT=100 \
+#     UV_SYSTEM_PYTHON=1 \
+#     PATH="/root/.local/bin/:$PATH"
 
-EXPOSE 8000
-ENTRYPOINT ["poetry", "run", "sanic", "asgi:app", "--host=0.0.0.0", "--port=8000", "--single-process", "--no-motd"]
+# # DL4006 info: Set the SHELL option -o pipefail before RUN with a pipe in it.
+# SHELL  ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Label the docker image
-LABEL name="${LABEL_NAME}"
-LABEL version="${LABEL_VERSION}"
-LABEL url="${LABEL_URL}"
+# USER superquinquin
+
+# RUN --mount=type=cache,target=/root/.cache/uv \
+#     --mount=type=bind,source=uv.lock,target=uv.lock \
+#     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+#     uv sync --locked --no-install-project
+
+
+# # ADD https://astral.sh/uv/install.sh /uv-installer.sh
+# # RUN /uv-installer.sh && rm /uv-installer.sh
+# # COPY uv.lock pyproject.toml ./
+# # RUN uv pip install -r pyproject.toml
+
+# WORKDIR  ${APP_DIR}
+# COPY --chown=superquinquin:superquinquin . ${APP_DIR}/
+
+# EXPOSE 8000
+# # ENTRYPOINT ["poetry", "run", "sanic", "asgi:app", "--host=0.0.0.0", "--port=8000", "--single-process", "--no-motd"]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ###################################################################################
+# FROM  python:3.11-slim as base
+
+# # Set apt variables to avoid interactive mode
+# ENV  DEBIAN_FRONTEND=noninteractive
+# # DL4006 info: Set the SHELL option -o pipefail before RUN with a pipe in it.
+# SHELL  ["/bin/bash", "-o", "pipefail", "-c"]
+
+# # Update the list of packages, install minimal packages
+# RUN  apt-get update \
+#     && apt-get install --no-install-recommends -y \
+#     apt-utils \
+#     curl \
+#     libpcre3 \
+#     libpcre3-dev \
+#     libssl-dev \
+#     build-essential \
+#     libjpeg62-turbo-dev \
+#     zlib1g-dev
+# # Clean apt to minimize size of image
+# RUN  apt-get clean
+# RUN  rm -rf /var/lib/apt/lists/*
+# # Add default user for the docker container to be used as non-root
+# RUN  useradd -rm -d "/home/superquinquin" -s "/bin/bash" -u 1001 superquinquin
+
+# ###################################################################################
+# FROM  base as pybase
+
+# ENV  DEBIAN_FRONTEND=noninteractive
+# # Keeps Python from generating .pyc files in the container
+# ENV  PYTHONDONTWRITEBYTECODE=1
+# # Turns off buffering for easier container logging
+# ENV  PYTHONUNBUFFERED=1
+# # Configure PIP
+# ENV  APP_DIR="/home/superquinquin/app"
+# ENV PYTHONUNBUFFERED=1 \
+#     PYTHONDONTWRITEBYTECODE=1 \
+#     \
+#     PIP_NO_CACHE_DIR=off \
+#     PIP_DISABLE_PIP_VERSION_CHECK=on \
+#     PIP_DEFAULT_TIMEOUT=100 \
+#     UV_SYSTEM_PYTHON=1 \
+#     PATH="/root/.local/bin/:$PATH"
+
+
+# # ENV  PIP_NO_CACHE_DIR=off \
+# #     PIP_DISABLE_PIP_VERSION_CHECK=on \
+# #     PIP_DEFAULT_TIMEOUT=100 \
+# #     POETRY_NO_INTERACTION=1 \
+# #     POETRY_HOME="/home/superquinquin/poetry" \
+# #     POETRY_VIRTUALENVS_IN_PROJECT=1 \
+# #     POETRY_VIRTUALENVS_CREATE=1 \
+# #     POETRY_CACHE_DIR="/tmp/poetry_cache"
+# # Configure Poetry
+# # ENV  POETRY_VERSION=1.8.2
+
+
+# # # Install poetry
+# # ENV PATH="$POETRY_HOME/bin:$PATH"
+# # RUN  curl -sSL https://install.python-poetry.org | /usr/local/bin/python3 - --version ${POETRY_VERSION}
+# # WORKDIR $APP_DIR
+# # COPY poetry.lock pyproject.toml ./
+# # # install runtime deps - uses $POETRY_VIRTUALENVS_IN_PROJECT internally
+# # RUN poetry install --only main && rm -rf $POETRY_CACHE_DIR
+
+
+
+
+
+# # DL4006 info: Set the SHELL option -o pipefail before RUN with a pipe in it.
+# SHELL  ["/bin/bash", "-o", "pipefail", "-c"]
+# USER superquinquin
+
+# ADD https://astral.sh/uv/install.sh /uv-installer.sh
+# RUN sh /uv-installer.sh && rm /uv-installer.sh
+# COPY uv.lock pyproject.toml ./
+# RUN uv pip install -r pyproject.toml
+
+
+
+
+
+# ###################################################################################
+# FROM pybase as final
+
+# ARG  LABEL_NAME="printer"
+# ARG  LABEL_VERSION="0.3.0"
+# ARG  LABEL_URL="https://github.com/superquinquin/Brcd-Printer/"
+
+# ENV  APP_DIR="/home/superquinquin/app"
+# ENV PATH="/root/.local/bin/:$PATH"
+# # Keeps Python from generating .pyc files in the container
+# ENV  PYTHONDONTWRITEBYTECODE=1
+# # Turns off buffering for easier container logging
+# ENV  PYTHONUNBUFFERED=1
+# # Setup the poetry / pip env
+
+# ENV PYTHONUNBUFFERED=1 \
+#     PYTHONDONTWRITEBYTECODE=1 \
+#     \
+#     PIP_NO_CACHE_DIR=off \
+#     PIP_DISABLE_PIP_VERSION_CHECK=on \
+#     PIP_DEFAULT_TIMEOUT=100 \
+#     UV_SYSTEM_PYTHON=1 \
+#     PATH="/root/.local/bin/:$PATH"
+
+# WORKDIR  ${APP_DIR}
+# USER superquinquin
+
+# COPY --chown=superquinquin:superquinquin --from=pybase ${POETRY_HOME} ${POETRY_HOME}
+# COPY --chown=superquinquin:superquinquin . ${APP_DIR}/
+
+# EXPOSE 8000
+# ENTRYPOINT ["poetry", "run", "sanic", "asgi:app", "--host=0.0.0.0", "--port=8000", "--single-process", "--no-motd"]
+
+# # Label the docker image
+# LABEL name="${LABEL_NAME}"
+# LABEL version="${LABEL_VERSION}"
+# LABEL url="${LABEL_URL}"

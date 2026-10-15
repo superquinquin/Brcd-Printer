@@ -1,75 +1,217 @@
+from __future__ import annotations
+import csv
+import re
 import os
-import json
 import yaml
-import warnings
+import tomllib
+from pathlib import Path
 from yaml import SafeLoader
-from typing import Dict, Any
-from collections import defaultdict, ChainMap
+from collections import defaultdict
+from abc import ABC, abstractmethod
 
-Payload = Dict[str, Any]
+from typing import Any, Type, Generator, TypeVar
+
+Payload = dict[str, Any]
+ESCAPED = ["\\", "^", "$", ".", "|", "?", "*", "+", "(", ")", "[", "]", "{", "}"]
+
+T = TypeVar("T", dict[str, Any], list[dict[str, Any]], csv.DictReader)
+
+def select_loader(path: str | Path) -> Type[Loader]:
+    path = Path(path)
+    match path.suffix:
+        case ".yml" | ".yaml":
+            return YamlLoader
+        case ".toml":
+            return TomlLoader
+        case _:
+            raise ValueError(f"non handled File format: {path.suffix}.")
+
+class Loader(ABC):
+    EXTS: list[str]
+
+    @abstractmethod
+    def load(self, fp: str | Path) -> T:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def load_from_str(self, data: str) -> T:
+        raise NotImplementedError()
+
+    def lazy_loader(self, fp: str | Path) -> Generator[dict[str, Any]]:
+        raise NotImplementedError()
+
+class YamlLoader(Loader):
+    EXTS = [".yml", ".yaml"]
+
+    def load(self, fp: str | Path) -> dict[str, Any]:
+        with open(fp, "r") as f:
+            payload = yaml.load(f, SafeLoader)
+        return payload
+
+    def load_from_str(self, data: str) -> dict[str, Any]:
+        return yaml.load(data, SafeLoader)
+
+class TomlLoader(Loader):
+    EXTS = [".toml"]
+
+    def load(self, fp: str | Path) -> dict[str, Any]:
+        with open(fp, "rb") as f:
+            payload = tomllib.load(f)
+        return payload
+
+    def load_from_str(self, data: str) -> dict[str, Any]:
+        return tomllib.loads(data)
+
+class Pattern(object):
+    prefix: str
+    suffix: str
+
+    def __init__(self, prefix: str, suffix: str):
+        self.prefix = prefix
+        self.suffix = suffix
+
+    @property
+    def find(self) -> str:
+        prefix, suffix = self._escaped()
+        return f"^{prefix}.*?{suffix}$"
+
+    @property
+    def sub(self) -> str:
+        prefix, suffix = self._escaped()
+        return f"^{prefix}|{suffix}"
+
+    def key(self, s: str) -> str:
+        return re.sub(re.compile(self.sub), "", s).strip()
+
+    def is_pattern(self, s: str) -> bool:
+        return bool(re.search(re.compile(self.find), s))
+
+    def _escaped(self) -> tuple[str, str]:
+        prefix = "".join([c if c not in ESCAPED else f"\\{c}" for c in self.prefix])
+        suffix = "".join([c if c not in ESCAPED else f"\\{c}" for c in self.suffix])
+        return (prefix, suffix)
 
 
-def parse_config(config: Payload) -> Payload:
-    env = os.environ.get("ENV", "development")
-    main_config = config.get("app", None)
+class ConfigLoader:
+    def __init__(
+        self,
+        d: dict[str, Any] | None = None,
+        environ_pattern: Pattern = Pattern("${", "}"),
+        template_pattern: Pattern = Pattern("{{", "}}"),
+        allow_env_specific_merging: bool = False,
+        main_configs_name: str | None = None,
+    ) -> None:
+        self.environ_pattern = environ_pattern
+        self.template_pattern = template_pattern
+        self.allow_env_specific_merging = allow_env_specific_merging
+        self.main_configs_name = main_configs_name
+        self.d = {}
+        if d is not None:
+            self.d = d
 
-    if main_config is None:
-        raise KeyError("app configs not found.")
+    def load(
+        self,
+        fp: str | Path,
+        loader: Type[Loader] = YamlLoader,
+        template: dict[str, Any] | None = None,
+        overwrite: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        payload = loader().load(fp)
+        payload = self.map(payload, template, overwrite)
+        return payload
 
-    if env not in config.keys():
-        warnings.warn(f"No specific configuration found for {env}")
+    def map(
+        self,
+        d: dict[str, Any],
+        template: dict[str, Any] | None = None,
+        overwrite: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        if template is None:
+            template = {}
+        if overwrite is None:
+            overwrite = {}
+        self.d = d
+        self.template = template
+        self.overwrite = overwrite
+        self.d = self._map(self.d, [])
 
-    env_config = config.get(env, {})
+        if self.allow_env_specific_merging:
+            self._merge()
 
-    config = defaultdict(dict)
-    for key in list(set(list(main_config.keys()) + list(env_config.keys()))):
-        mcfg = main_config.get(key, None)
-        ecfg = env_config.get(key, None)
+        if self.main_configs_name is not None:
+            self.d = self.d.get(self.main_configs_name)
 
-        if mcfg is None and ecfg is None:
-            continue
+        assert self.d is not None
+        return self.d
 
-        elif not mcfg or not ecfg:
-            config[key] = list(filter(None, [mcfg, ecfg]))[0]
+    def _map(self, d: dict[str, Any], location: list[str]) -> dict[str, Any]:
+        if location is None:
+            location = []
+        if d is None:
+            raise ValueError("Mapper is missing base dict.")
 
-        elif type(mcfg) != type(ecfg):
-            raise TypeError(
-                f"{key} from cannettes and env configs must be of same type"
-            )
+        for k, v in d.items():
+            d[k] = self._v_handler(k, v, location + [k])
+        return d
 
-        elif isinstance(mcfg, dict) and isinstance(ecfg, dict):
-            # -- env cfg must override in case of duplicates
-            config[key] = {**mcfg, **ecfg}
+    def _v_handler(self, key: str, value: Any, location: list[str]):
+        layer = ".".join(location)
+        if isinstance(value, str) and self.environ_pattern.is_pattern(value):
+            value = self._get_environ_value(key, value)
+        elif isinstance(value, str) and self.template_pattern.is_pattern(value):
+            value = self._get_template_value(value)
+        elif layer in self.overwrite.keys():
+            value = self.overwrite.get(layer)
+        elif isinstance(value, list):
+            value = [self._v_handler(key, elm, location) for elm in value]
+        elif isinstance(value, dict):
+            value = self._map(value, location)
+        return value
 
-        else:
-            # -- last case, type is not dict, override with env config
-            config[key] = ecfg
+    def _get_environ_value(self, key: str, value: str) -> str:
+        env = os.environ.get(self.environ_pattern.key(value), None)
+        if env is None:
+            raise KeyError(f"ENV variable {key} not found.")
+        return env.strip()
 
-    return config
+    def _get_template_value(self, value: str) -> Any:
+        return self.template.get(self.template_pattern.key(value), None)
 
+    def _merge(self) -> dict[str, Any]:
+        assert self.d is not None
+        assert self.main_configs_name is not None
 
-def parse_client_config(filename: str, *configs: Payload) -> None:
-    """generate config json file"""
-    client_cfg = dict(ChainMap(*configs))
-    with open(filename, "w") as writer:
-        writer.write(f"var config = {json.dumps(client_cfg)};")
+        env = os.environ.get("ENV", None)
+        main_config = self.d.get(self.main_configs_name, None)
 
+        if main_config is None:
+            raise KeyError(f"Main configuration dict `app` not found.")
 
-def map_env(config: Payload) -> Payload:
-    for k, v in config.items():
-        if isinstance(v, str) and v.startswith("${"):
-            v = os.environ.get(v.split("{")[1].strip("}"), None)
-            if v is None:
-                raise KeyError(f"ENV variable {k} does not exist")
-            config[k] = v
-        elif isinstance(v, dict):
-            config[k] = map_env(v)
-    return config
+        if env is None:
+            env = main_config.get("env", None)
 
+        if env is None:
+            raise EnvironmentError(f"`ENV` environment variable is unset.")
 
-def get_config(path: str) -> Payload:
-    with open(path, "r") as f:
-        config = yaml.load(f, SafeLoader)
-        config = parse_config(config)
-        config = map_env(config)
-    return config
+        env_config = self.d.get(env, {})
+        config = defaultdict(dict)
+        for key in list(set(list(main_config.keys()) + list(env_config.keys()))):
+            mcfg = main_config.get(key, None)
+            ecfg = env_config.get(key, None)
+
+            if mcfg is None and ecfg is None:
+                continue
+
+            elif not mcfg or not ecfg:
+                config[key] = list(filter(None, [mcfg, ecfg]))[0]
+
+            elif type(mcfg) != type(ecfg):
+                raise TypeError(f"unmatching types for {key}.")
+            elif isinstance(mcfg, dict) and isinstance(ecfg, dict):
+                # -- env cfg must override in case of duplicates
+                config[key] = {**mcfg, **ecfg}
+
+            else:
+                # -- last case, type is not dict, override with env config
+                config[key] = ecfg
+        return config
