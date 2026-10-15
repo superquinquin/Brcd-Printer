@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import os
 import time
-import logging
 from contextlib import ContextDecorator
 from datetime import datetime
 from functools import wraps
@@ -47,7 +46,6 @@ def resilient(degree: int = 3):
     return decorator
 
 
-
 class OdooConnector(object):
     def __init__(self, host: str, database: str, verbose: bool = False, **kwargs) -> None:
         self.host = host
@@ -74,7 +72,7 @@ class OdooConnector(object):
             raise ValueError(
                 "ERP_USERNAME and one of ERP_PASSWORD / ERP_API_KEY must be set"
             )
-        return (username, api_key or password, api_key)
+        return (username, password, api_key)
 
     @classmethod
     def from_env(cls) -> OdooConnector:
@@ -86,17 +84,17 @@ class OdooConnector(object):
 
     def make_session(self, max_retries: int = 5, retries_interval: int = 5) -> OdooSession:
         username, password, api_key = self.credentials()
-        
+
         success, tries, last_error = False, 0, None
         while (success is False and tries <= max_retries):
             try:
                 client = Client(
-                    self.url, 
+                    self.url + "/jsonrpc", 
                     self.database, 
                     username, 
                     password,
                     api_key=api_key, 
-                    verbose=self.verbose,
+                    verbose=True,
                 )
                 success = True
                 return OdooSession(client, self)
@@ -128,8 +126,12 @@ class OdooSession(ContextDecorator):
     def renew_session(self) -> None:
         username, password, api_key = self.connector.credentials()
         client = Client(
-            self.connector.url, self.client.env.db_name, username, password,
-            api_key=api_key, verbose=False,
+            self.connector.url + "/jsonrpc", 
+            self.client.env.db_name, 
+            username, 
+            password,
+            api_key=api_key, 
+            verbose=False,
         )
         self.client = client
 

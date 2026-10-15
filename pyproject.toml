@@ -17,4 +17,5 @@ dependencies = [
     "pillow>=9.5.0",
     "odooly>=2.6.6",
     "pydantic>=2.13.5",
+    "requests>=2.34.2",
 ]
