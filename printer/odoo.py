@@ -94,7 +94,7 @@ class OdooConnector(object):
                     username, 
                     password,
                     api_key=api_key, 
-                    verbose=True,
+                    verbose=False,
                 )
                 success = True
                 return OdooSession(client, self)
