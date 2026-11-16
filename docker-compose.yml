@@ -13,8 +13,8 @@ services:
     networks:
       - printer
     volumes:
-      - ./volume_production:/home/superquinquin/app/volume
-      - ./printer_configs/config_production.yaml:/home/superquinquin/app/printer_configs/config_production.yaml
+      - ./volume_production:/app/volume
+      - ./printer_configs/config_production.yaml:/app/printer_configs/config_production.yaml
     restart: unless-stopped
 
   printer_staging:
