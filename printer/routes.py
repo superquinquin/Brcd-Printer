@@ -5,7 +5,7 @@ import traceback
 from time import perf_counter
 from sanic import Blueprint
 from sanic.request import Request
-from sanic.response import HTTPResponse, json
+from sanic.response import HTTPResponse, json, file
 from sanic_ext import render
 
 from printer.validator import validator, odoo_validator
@@ -51,6 +51,10 @@ async def log_exit(request: Request, response: HTTPResponse) -> None:
 @printer.get("/")
 async def index(request: Request):
     return await render("index.html")
+
+@printer.get("/favicon.ico")
+async def favico(request: Request):
+    return await file("printer/static/favicon.ico")
 
 @printer.post("/job")
 @validator
@@ -118,7 +122,3 @@ async def get_barcodes(request:Request) -> HTTPResponse:
     db: Database = request.app.ctx.db
     res = db.get_barcodes()
     return json(res, status=200)
-
-
-
-
