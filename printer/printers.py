@@ -82,7 +82,7 @@ class Printer(object):
             await self._print(fp.name, qty)
         
     async def _print(self, fp: str, qty: int) -> None:
-        cmd = ["brother_ql", "-b", self.backend, "-m", self.model, "-p", self.address, "print", "-l", self.dimensions, fp]
+        cmd = ["./.venv/bin/brother_ql", "-b", self.backend, "-m", self.model, "-p", self.address, "print", "-l", self.dimensions, fp]
         for _ in range(qty):
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE,stderr=subprocess.PIPE)
             out = p.communicate(timeout=5)
